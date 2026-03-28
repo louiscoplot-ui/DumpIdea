@@ -233,6 +233,7 @@ def delete_item(item_id):
     return jsonify({"success": True})
 
 
+init_db()
+
 if __name__ == "__main__":
-    init_db()
     app.run(debug=True, port=5000)
