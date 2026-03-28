@@ -3,10 +3,13 @@ import json
 from datetime import datetime
 from flask import Flask, request, jsonify
 from flask_cors import CORS
+import time
 import anthropic
 import requests as http_requests
 import psycopg2
 from psycopg2.extras import RealDictCursor
+
+_token_cache = {}
 
 app = Flask(__name__)
 CORS(app)
@@ -55,6 +58,11 @@ def get_user_id():
     if not auth.startswith("Bearer "):
         return None
     token = auth[7:]
+    # Cache valid tokens for 4 minutes
+    if token in _token_cache:
+        cached_at, user_id = _token_cache[token]
+        if time.time() - cached_at < 240:
+            return user_id
     try:
         resp = http_requests.get(
             "https://www.googleapis.com/oauth2/v3/userinfo",
@@ -62,7 +70,9 @@ def get_user_id():
             timeout=5,
         )
         if resp.status_code == 200:
-            return resp.json().get("sub")
+            user_id = resp.json().get("sub")
+            _token_cache[token] = (time.time(), user_id)
+            return user_id
     except Exception:
         pass
     return None

@@ -261,13 +261,19 @@ export default function App() {
   const confirm = async () => {
     if (!previews.length) return;
     try {
-      await Promise.all(previews.map((p) =>
+      const results = await Promise.all(previews.map((p) =>
         fetch("/api/items", {
           method: "POST",
           headers: authHeaders,
           body: JSON.stringify(p),
         })
       ));
+      const failed = results.find((r) => r.status === 401);
+      if (failed) {
+        logout();
+        setError("Session expirée — reconnecte-toi.");
+        return;
+      }
       setPreviews([]);
       setText("");
       fetchItems();
