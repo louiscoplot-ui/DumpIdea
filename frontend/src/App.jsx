@@ -17,13 +17,13 @@ const FILTERS = [
 ];
 
 const T = {
-  french:     { placeholder: "Vide ta tête ici… (Entrée pour analyser)", analyse: "Analyser", analysing: "Analyse…", confirm: "✓ Confirmer", discard: "Ignorer", preview: "Aperçu", chars: "car.", all: "Tout", todo: "To-do", ideas: "Idées", calls: "Calls", notes: "Notes", empty: "Aucune entrée.", emptySub: "Tape quelque chose ci-dessus et analyse !", inCat: " dans cette catégorie", entry: "entrée", entries: "entrées" },
-  english:    { placeholder: "Dump your thoughts here… (Enter to analyse)", analyse: "Analyse", analysing: "Analysing…", confirm: "✓ Confirm", discard: "Dismiss", preview: "Preview", chars: "chars", all: "All", todo: "To-do", ideas: "Ideas", calls: "Calls", notes: "Notes", empty: "No entries.", emptySub: "Type something above and analyse!", inCat: " in this category", entry: "entry", entries: "entries" },
-  spanish:    { placeholder: "Vacía tu cabeza aquí… (Enter para analizar)", analyse: "Analizar", analysing: "Analizando…", confirm: "✓ Confirmar", discard: "Ignorar", preview: "Vista previa", chars: "car.", all: "Todo", todo: "Tarea", ideas: "Ideas", calls: "Llamadas", notes: "Notas", empty: "Sin entradas.", emptySub: "¡Escribe algo arriba y analiza!", inCat: " en esta categoría", entry: "entrada", entries: "entradas" },
-  italian:    { placeholder: "Svuota la testa qui… (Invio per analizzare)", analyse: "Analizza", analysing: "Analisi…", confirm: "✓ Conferma", discard: "Ignora", preview: "Anteprima", chars: "car.", all: "Tutto", todo: "To-do", ideas: "Idee", calls: "Chiamate", notes: "Note", empty: "Nessuna voce.", emptySub: "Scrivi qualcosa sopra e analizza!", inCat: " in questa categoria", entry: "voce", entries: "voci" },
-  portuguese: { placeholder: "Esvazie sua cabeça aqui… (Enter para analisar)", analyse: "Analisar", analysing: "Analisando…", confirm: "✓ Confirmar", discard: "Ignorar", preview: "Pré-visualização", chars: "car.", all: "Tudo", todo: "Tarefa", ideas: "Ideias", calls: "Chamadas", notes: "Notas", empty: "Sem entradas.", emptySub: "Digite algo acima e analise!", inCat: " nesta categoria", entry: "entrada", entries: "entradas" },
-  chinese:    { placeholder: "在此清空思绪…（按Enter分析）", analyse: "分析", analysing: "分析中…", confirm: "✓ 确认", discard: "忽略", preview: "预览", chars: "字", all: "全部", todo: "待办", ideas: "想法", calls: "通话", notes: "笔记", empty: "暂无内容。", emptySub: "在上方输入内容并分析！", inCat: "（此类别）", entry: "条", entries: "条" },
-  russian:    { placeholder: "Выгрузи мысли сюда… (Enter для анализа)", analyse: "Анализ", analysing: "Анализ…", confirm: "✓ Сохранить", discard: "Отмена", preview: "Просмотр", chars: "симв.", all: "Все", todo: "Задача", ideas: "Идеи", calls: "Звонки", notes: "Заметки", empty: "Нет записей.", emptySub: "Введите что-нибудь выше и нажмите анализ!", inCat: " в этой категории", entry: "запись", entries: "записей" },
+  french:     { placeholder: "Vide ta tête ici… (Entrée pour analyser)", analyse: "Analyser", analysing: "Analyse…", confirm: "✓ Confirmer", discard: "Ignorer", preview: "Aperçu", chars: "car.", all: "Tout", todo: "To-do", ideas: "Idées", calls: "Calls", notes: "Notes", done: "Fait", empty: "Aucune entrée.", emptySub: "Tape quelque chose ci-dessus et analyse !", inCat: " dans cette catégorie", entry: "entrée", entries: "entrées" },
+  english:    { placeholder: "Dump your thoughts here… (Enter to analyse)", analyse: "Analyse", analysing: "Analysing…", confirm: "✓ Confirm", discard: "Dismiss", preview: "Preview", chars: "chars", all: "All", todo: "To-do", ideas: "Ideas", calls: "Calls", notes: "Notes", done: "Done", empty: "No entries.", emptySub: "Type something above and analyse!", inCat: " in this category", entry: "entry", entries: "entries" },
+  spanish:    { placeholder: "Vacía tu cabeza aquí… (Enter para analizar)", analyse: "Analizar", analysing: "Analizando…", confirm: "✓ Confirmar", discard: "Ignorar", preview: "Vista previa", chars: "car.", all: "Todo", todo: "Tarea", ideas: "Ideas", calls: "Llamadas", notes: "Notas", done: "Hecho", empty: "Sin entradas.", emptySub: "¡Escribe algo arriba y analiza!", inCat: " en esta categoría", entry: "entrada", entries: "entradas" },
+  italian:    { placeholder: "Svuota la testa qui… (Invio per analizzare)", analyse: "Analizza", analysing: "Analisi…", confirm: "✓ Conferma", discard: "Ignora", preview: "Anteprima", chars: "car.", all: "Tutto", todo: "To-do", ideas: "Idee", calls: "Chiamate", notes: "Note", done: "Fatto", empty: "Nessuna voce.", emptySub: "Scrivi qualcosa sopra e analizza!", inCat: " in questa categoria", entry: "voce", entries: "voci" },
+  portuguese: { placeholder: "Esvazie sua cabeça aqui… (Enter para analisar)", analyse: "Analisar", analysing: "Analisando…", confirm: "✓ Confirmar", discard: "Ignorar", preview: "Pré-visualização", chars: "car.", all: "Tudo", todo: "Tarefa", ideas: "Ideias", calls: "Chamadas", notes: "Notas", done: "Feito", empty: "Sem entradas.", emptySub: "Digite algo acima e analise!", inCat: " nesta categoria", entry: "entrada", entries: "entradas" },
+  chinese:    { placeholder: "在此清空思绪…（按Enter分析）", analyse: "分析", analysing: "分析中…", confirm: "✓ 确认", discard: "忽略", preview: "预览", chars: "字", all: "全部", todo: "待办", ideas: "想法", calls: "通话", notes: "笔记", done: "完成", empty: "暂无内容。", emptySub: "在上方输入内容并分析！", inCat: "（此类别）", entry: "条", entries: "条" },
+  russian:    { placeholder: "Выгрузи мысли сюда… (Enter для анализа)", analyse: "Анализ", analysing: "Анализ…", confirm: "✓ Сохранить", discard: "Отмена", preview: "Просмотр", chars: "симв.", all: "Все", todo: "Задача", ideas: "Идеи", calls: "Звонки", notes: "Заметки", done: "Готово", empty: "Нет записей.", emptySub: "Введите что-нибудь выше и нажмите анализ!", inCat: " в этой категории", entry: "запись", entries: "записей" },
 };
 
 const LANGUAGES = [
@@ -172,7 +172,7 @@ export default function App() {
   const fetchItems = useCallback(async () => {
     if (!token) return;
     try {
-      const res = await fetch(`/api/items?type=${filter}`, {
+      const res = await fetch(`/api/items`, {
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
       });
       if (res.status === 401) { logout(); return; }
@@ -181,7 +181,7 @@ export default function App() {
     } catch {
       // ignore fetch errors for list
     }
-  }, [filter, token]);
+  }, [token]);
 
   useEffect(() => {
     if (token) fetchItems();
@@ -284,27 +284,30 @@ export default function App() {
     }
   };
 
-  const toggleItem = async (id, completed) => {
-    await fetch(`/api/items/${id}`, {
+  const toggleItem = (id, completed) => {
+    setItems(prev => prev.map(i => i.id === id ? { ...i, completed: !completed } : i));
+    fetch(`/api/items/${id}`, {
       method: "PUT",
       headers: authHeaders,
       body: JSON.stringify({ completed: !completed }),
     });
-    fetchItems();
   };
 
-  const toggleSubtask = async (itemId, subtaskIndex, currentDone) => {
-    await fetch(`/api/items/${itemId}`, {
+  const toggleSubtask = (itemId, subtaskIndex, currentDone) => {
+    setItems(prev => prev.map(i => i.id === itemId ? {
+      ...i,
+      subtask_status: { ...i.subtask_status, [subtaskIndex]: !currentDone }
+    } : i));
+    fetch(`/api/items/${itemId}`, {
       method: "PUT",
       headers: authHeaders,
       body: JSON.stringify({ subtask_index: subtaskIndex, completed: !currentDone }),
     });
-    fetchItems();
   };
 
-  const deleteItem = async (id) => {
-    await fetch(`/api/items/${id}`, { method: "DELETE", headers: authHeaders });
-    fetchItems();
+  const deleteItem = (id) => {
+    setItems(prev => prev.filter(i => i.id !== id));
+    fetch(`/api/items/${id}`, { method: "DELETE", headers: authHeaders });
   };
 
   const t = T[language] || T.french;
@@ -337,10 +340,20 @@ export default function App() {
     { key: "idea",      label: t.ideas },
     { key: "call_note", label: t.calls },
     { key: "note",      label: t.notes },
+    { key: "done",      label: t.done || "Fait" },
   ];
 
+  const activeItems = items.filter(i => !i.completed);
+  const doneItems = items.filter(i => i.completed);
+
+  const filteredItems = filter === "done"
+    ? doneItems
+    : filter === "all"
+      ? activeItems
+      : activeItems.filter(i => i.type === filter);
+
   const totalByType = FILTERS.slice(1).reduce((acc, f) => {
-    acc[f.key] = items.filter((i) => i.type === f.key).length;
+    acc[f.key] = activeItems.filter((i) => i.type === f.key).length;
     return acc;
   }, {});
 
@@ -463,7 +476,10 @@ export default function App() {
             onClick={() => setFilter(f.key)}
           >
             {f.label}
-            {f.key !== "all" && totalByType[f.key] > 0 && (
+            {f.key === "done" && doneItems.length > 0 && (
+              <span style={{ marginLeft: 5, opacity: 0.75 }}>{doneItems.length}</span>
+            )}
+            {f.key !== "all" && f.key !== "done" && totalByType[f.key] > 0 && (
               <span style={{ marginLeft: 5, opacity: 0.75 }}>{totalByType[f.key]}</span>
             )}
           </button>
@@ -472,14 +488,14 @@ export default function App() {
 
       {/* Items */}
       <div className="items-list">
-        {items.length === 0 ? (
+        {filteredItems.length === 0 ? (
           <div className="empty-state">
             <div className="empty-icon">📭</div>
             <div>{filter !== "all" ? t.empty.replace(".", "") + t.inCat + "." : t.empty}</div>
             <div style={{ marginTop: 6, opacity: 0.7 }}>{t.emptySub}</div>
           </div>
         ) : (
-          items.map((item) => (
+          filteredItems.map((item) => (
             <ItemCard
               key={item.id}
               item={item}
