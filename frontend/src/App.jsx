@@ -249,17 +249,15 @@ export default function App() {
         {items.length > 0 && (
           <span className="header-count">{items.length} entrée{items.length > 1 ? "s" : ""}</span>
         )}
-        <div className="lang-selector">
+        <select
+          className="lang-select"
+          value={language}
+          onChange={(e) => setLanguage(e.target.value)}
+        >
           {LANGUAGES.map((l) => (
-            <button
-              key={l.code}
-              className={`lang-btn${language === l.code ? " active" : ""}`}
-              onClick={() => setLanguage(l.code)}
-            >
-              {l.label}
-            </button>
+            <option key={l.code} value={l.code}>{l.label}</option>
           ))}
-        </div>
+        </select>
       </div>
 
       {/* Capture zone */}

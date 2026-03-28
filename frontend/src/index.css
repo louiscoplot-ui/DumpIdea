@@ -547,35 +547,24 @@ html, body {
 
 /* ─── Language selector ─── */
 
-.lang-selector {
-  display: flex;
-  gap: 4px;
+.lang-select {
   margin-left: auto;
-  flex-wrap: wrap;
-}
-
-.lang-btn {
-  background: transparent;
+  background: var(--surface);
   color: var(--text-muted);
   border: 1px solid var(--border);
   border-radius: 6px;
-  padding: 3px 8px;
-  font-size: 11px;
+  padding: 4px 8px;
+  font-size: 12px;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.15s;
-  letter-spacing: 0.03em;
+  outline: none;
+  transition: border-color 0.15s;
 }
 
-.lang-btn:hover {
-  color: var(--text);
-  border-color: var(--text-dim);
-}
-
-.lang-btn.active {
-  background: var(--border-focus);
+.lang-select:hover,
+.lang-select:focus {
   border-color: var(--border-focus);
-  color: white;
+  color: var(--text);
 }
 
 /* ─── Mic button ─── */
