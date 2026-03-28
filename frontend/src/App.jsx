@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
+import { useGoogleLogin, googleLogout } from "@react-oauth/google";
 
 const TYPE_META = {
   todo:      { label: "To-do",    icon: "✓",  badgeClass: "badge-todo" },
@@ -128,6 +129,36 @@ export default function App() {
   const [theme, setTheme] = useState(() => localStorage.getItem("bd-theme") || "dark");
   const [listening, setListening] = useState(false);
   const recognitionRef = useRef(null);
+  const [token, setToken] = useState(() => localStorage.getItem("bd-token") || null);
+  const [user, setUser] = useState(() => {
+    try { return JSON.parse(localStorage.getItem("bd-user") || "null"); } catch { return null; }
+  });
+
+  const login = useGoogleLogin({
+    onSuccess: async (res) => {
+      const t = res.access_token;
+      const profile = await fetch("https://www.googleapis.com/oauth2/v3/userinfo", {
+        headers: { Authorization: `Bearer ${t}` },
+      }).then((r) => r.json());
+      setToken(t);
+      setUser(profile);
+      localStorage.setItem("bd-token", t);
+      localStorage.setItem("bd-user", JSON.stringify(profile));
+    },
+  });
+
+  const logout = () => {
+    googleLogout();
+    setToken(null);
+    setUser(null);
+    localStorage.removeItem("bd-token");
+    localStorage.removeItem("bd-user");
+    setItems([]);
+  };
+
+  const authHeaders = token
+    ? { "Content-Type": "application/json", Authorization: `Bearer ${token}` }
+    : { "Content-Type": "application/json" };
 
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", theme);
@@ -140,7 +171,7 @@ export default function App() {
 
   const fetchItems = useCallback(async () => {
     try {
-      const res = await fetch(`/api/items?type=${filter}`);
+      const res = await fetch(`/api/items?type=${filter}`, { headers: authHeaders });
       const data = await res.json();
       setItems(Array.isArray(data) ? data : []);
     } catch {
@@ -207,7 +238,7 @@ export default function App() {
     try {
       const res = await fetch("/api/process", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: authHeaders,
         body: JSON.stringify({ text, language }),
       });
       const data = await res.json();
@@ -228,7 +259,7 @@ export default function App() {
     try {
       await fetch("/api/items", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: authHeaders,
         body: JSON.stringify(preview),
       });
       setPreview(null);
@@ -242,7 +273,7 @@ export default function App() {
   const toggleItem = async (id, completed) => {
     await fetch(`/api/items/${id}`, {
       method: "PUT",
-      headers: { "Content-Type": "application/json" },
+      headers: authHeaders,
       body: JSON.stringify({ completed: !completed }),
     });
     fetchItems();
@@ -251,18 +282,40 @@ export default function App() {
   const toggleSubtask = async (itemId, subtaskIndex, currentDone) => {
     await fetch(`/api/items/${itemId}`, {
       method: "PUT",
-      headers: { "Content-Type": "application/json" },
+      headers: authHeaders,
       body: JSON.stringify({ subtask_index: subtaskIndex, completed: !currentDone }),
     });
     fetchItems();
   };
 
   const deleteItem = async (id) => {
-    await fetch(`/api/items/${id}`, { method: "DELETE" });
+    await fetch(`/api/items/${id}`, { method: "DELETE", headers: authHeaders });
     fetchItems();
   };
 
   const t = T[language] || T.french;
+
+  if (!token) {
+    return (
+      <div className="login-screen">
+        <div className="login-card">
+          <span style={{ fontSize: 48 }}>🧠</span>
+          <h1 className="login-title">Braindump</h1>
+          <p className="login-sub">Capture tes idées, tâches et notes en quelques secondes.</p>
+          <button className="btn-google" onClick={() => login()}>
+            <svg width="18" height="18" viewBox="0 0 18 18"><path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.874 2.684-6.615z"/><path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.184l-2.908-2.258c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z"/><path fill="#FBBC05" d="M3.964 10.707A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.707V4.961H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.039l3.007-2.332z"/><path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.96l3.007 2.332C4.672 5.163 6.656 3.58 9 3.58z"/></svg>
+            Continuer avec Google
+          </button>
+          <div className="theme-dots" style={{ justifyContent: "center", marginTop: 24 }}>
+            {THEMES.map((th) => (
+              <button key={th.id} className={`theme-dot${theme === th.id ? " active" : ""}`}
+                style={{ background: th.color }} onClick={() => setTheme(th.id)} title={th.label} />
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const FILTERS_T = [
     { key: "all",       label: t.all },
@@ -286,15 +339,15 @@ export default function App() {
         {items.length > 0 && (
           <span className="header-count">{items.length} {items.length > 1 ? t.entries : t.entry}</span>
         )}
+        <button className="btn-logout" onClick={logout} title="Se déconnecter">
+          {user?.picture
+            ? <img src={user.picture} alt="avatar" className="user-avatar" />
+            : <span>⏻</span>}
+        </button>
         <div className="theme-dots">
           {THEMES.map((th) => (
-            <button
-              key={th.id}
-              className={`theme-dot${theme === th.id ? " active" : ""}`}
-              style={{ background: th.color }}
-              onClick={() => setTheme(th.id)}
-              title={th.label}
-            />
+            <button key={th.id} className={`theme-dot${theme === th.id ? " active" : ""}`}
+              style={{ background: th.color }} onClick={() => setTheme(th.id)} title={th.label} />
           ))}
         </div>
         <select

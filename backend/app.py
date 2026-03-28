@@ -5,6 +5,7 @@ from datetime import datetime
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 import anthropic
+import requests as http_requests
 
 app = Flask(__name__)
 CORS(app)
@@ -23,6 +24,7 @@ def init_db():
     conn.execute("""
         CREATE TABLE IF NOT EXISTS items (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id TEXT NOT NULL DEFAULT 'anonymous',
             type TEXT NOT NULL,
             title TEXT NOT NULL,
             content TEXT NOT NULL,
@@ -39,12 +41,39 @@ def init_db():
             PRIMARY KEY (item_id, subtask_index)
         )
     """)
+    # Add user_id column if it doesn't exist (migration)
+    try:
+        conn.execute("ALTER TABLE items ADD COLUMN user_id TEXT NOT NULL DEFAULT 'anonymous'")
+    except Exception:
+        pass
     conn.commit()
     conn.close()
 
 
+def get_user_id():
+    auth = request.headers.get("Authorization", "")
+    if not auth.startswith("Bearer "):
+        return None
+    token = auth[7:]
+    try:
+        resp = http_requests.get(
+            "https://www.googleapis.com/oauth2/v3/userinfo",
+            headers={"Authorization": f"Bearer {token}"},
+            timeout=5,
+        )
+        if resp.status_code == 200:
+            return resp.json().get("sub")
+    except Exception:
+        pass
+    return None
+
+
 @app.route("/api/process", methods=["POST"])
 def process_text():
+    user_id = get_user_id()
+    if not user_id:
+        return jsonify({"error": "Unauthorized"}), 401
+
     data = request.json
     raw_text = data.get("text", "").strip()
     language = data.get("language", "french")
@@ -90,7 +119,6 @@ Raw input:
             messages=[{"role": "user", "content": prompt}],
         )
         response_text = message.content[0].text.strip()
-        # Strip markdown fences if model returns them
         if response_text.startswith("```"):
             response_text = response_text.split("```")[1]
             if response_text.startswith("json"):
@@ -105,17 +133,21 @@ Raw input:
 
 @app.route("/api/items", methods=["GET"])
 def get_items():
+    user_id = get_user_id()
+    if not user_id:
+        return jsonify({"error": "Unauthorized"}), 401
+
     filter_type = request.args.get("type", "all")
     conn = get_db()
 
     if filter_type == "all":
         rows = conn.execute(
-            "SELECT * FROM items ORDER BY created_at DESC"
+            "SELECT * FROM items WHERE user_id = ? ORDER BY created_at DESC", (user_id,)
         ).fetchall()
     else:
         rows = conn.execute(
-            "SELECT * FROM items WHERE type = ? ORDER BY created_at DESC",
-            (filter_type,),
+            "SELECT * FROM items WHERE user_id = ? AND type = ? ORDER BY created_at DESC",
+            (user_id, filter_type),
         ).fetchall()
 
     result = []
@@ -138,11 +170,16 @@ def get_items():
 
 @app.route("/api/items", methods=["POST"])
 def create_item():
+    user_id = get_user_id()
+    if not user_id:
+        return jsonify({"error": "Unauthorized"}), 401
+
     data = request.json
     conn = get_db()
     cursor = conn.execute(
-        "INSERT INTO items (type, title, content, subtasks, created_at) VALUES (?, ?, ?, ?, ?)",
+        "INSERT INTO items (user_id, type, title, content, subtasks, created_at) VALUES (?, ?, ?, ?, ?, ?)",
         (
+            user_id,
             data["type"],
             data["title"],
             data["content"],
@@ -158,13 +195,17 @@ def create_item():
 
 @app.route("/api/items/<int:item_id>", methods=["PUT"])
 def update_item(item_id):
+    user_id = get_user_id()
+    if not user_id:
+        return jsonify({"error": "Unauthorized"}), 401
+
     data = request.json
     conn = get_db()
 
     if "completed" in data and "subtask_index" not in data:
         conn.execute(
-            "UPDATE items SET completed = ? WHERE id = ?",
-            (int(data["completed"]), item_id),
+            "UPDATE items SET completed = ? WHERE id = ? AND user_id = ?",
+            (int(data["completed"]), item_id, user_id),
         )
 
     if "subtask_index" in data:
@@ -180,8 +221,12 @@ def update_item(item_id):
 
 @app.route("/api/items/<int:item_id>", methods=["DELETE"])
 def delete_item(item_id):
+    user_id = get_user_id()
+    if not user_id:
+        return jsonify({"error": "Unauthorized"}), 401
+
     conn = get_db()
-    conn.execute("DELETE FROM items WHERE id = ?", (item_id,))
+    conn.execute("DELETE FROM items WHERE id = ? AND user_id = ?", (item_id, user_id))
     conn.execute("DELETE FROM subtask_status WHERE item_id = ?", (item_id,))
     conn.commit()
     conn.close()
