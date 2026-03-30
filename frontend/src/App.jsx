@@ -28,14 +28,74 @@ const T = {
 };
 
 const LANGUAGES = [
-  { code: "french",     label: "FR — Français" },
-  { code: "english",    label: "EN — English" },
-  { code: "spanish",    label: "ES — Español" },
-  { code: "italian",    label: "IT — Italiano" },
-  { code: "portuguese", label: "PT — Português" },
-  { code: "chinese",    label: "ZH — 中文" },
-  { code: "russian",    label: "RU — Русский" },
+  { code: "french",      label: "FR — Français",           name: "French" },
+  { code: "english",     label: "EN — English",            name: "English" },
+  { code: "spanish",     label: "ES — Español",            name: "Spanish" },
+  { code: "italian",     label: "IT — Italiano",           name: "Italian" },
+  { code: "portuguese",  label: "PT — Português",          name: "Portuguese" },
+  { code: "chinese",     label: "ZH — 中文",               name: "Chinese" },
+  { code: "russian",     label: "RU — Русский",            name: "Russian" },
+  { code: "german",      label: "DE — Deutsch",            name: "German" },
+  { code: "dutch",       label: "NL — Nederlands",         name: "Dutch" },
+  { code: "arabic",      label: "AR — العربية",             name: "Arabic" },
+  { code: "japanese",    label: "JA — 日本語",              name: "Japanese" },
+  { code: "korean",      label: "KO — 한국어",              name: "Korean" },
+  { code: "hindi",       label: "HI — हिंदी",               name: "Hindi" },
+  { code: "bengali",     label: "BN — বাংলা",              name: "Bengali" },
+  { code: "turkish",     label: "TR — Türkçe",             name: "Turkish" },
+  { code: "vietnamese",  label: "VI — Tiếng Việt",         name: "Vietnamese" },
+  { code: "polish",      label: "PL — Polski",             name: "Polish" },
+  { code: "ukrainian",   label: "UK — Українська",          name: "Ukrainian" },
+  { code: "swedish",     label: "SV — Svenska",            name: "Swedish" },
+  { code: "norwegian",   label: "NO — Norsk",              name: "Norwegian" },
+  { code: "danish",      label: "DA — Dansk",              name: "Danish" },
+  { code: "finnish",     label: "FI — Suomi",              name: "Finnish" },
+  { code: "czech",       label: "CS — Čeština",            name: "Czech" },
+  { code: "hungarian",   label: "HU — Magyar",             name: "Hungarian" },
+  { code: "romanian",    label: "RO — Română",             name: "Romanian" },
+  { code: "greek",       label: "EL — Ελληνικά",           name: "Greek" },
+  { code: "hebrew",      label: "HE — עברית",              name: "Hebrew" },
+  { code: "persian",     label: "FA — فارسی",              name: "Persian" },
+  { code: "indonesian",  label: "ID — Bahasa Indonesia",   name: "Indonesian" },
+  { code: "malay",       label: "MS — Bahasa Melayu",      name: "Malay" },
+  { code: "thai",        label: "TH — ภาษาไทย",            name: "Thai" },
+  { code: "tagalog",     label: "TL — Filipino",           name: "Filipino" },
+  { code: "swahili",     label: "SW — Kiswahili",          name: "Swahili" },
+  { code: "catalan",     label: "CA — Català",             name: "Catalan" },
+  { code: "bulgarian",   label: "BG — Български",           name: "Bulgarian" },
+  { code: "croatian",    label: "HR — Hrvatski",           name: "Croatian" },
+  { code: "serbian",     label: "SR — Српски",              name: "Serbian" },
+  { code: "slovak",      label: "SK — Slovenčina",         name: "Slovak" },
+  { code: "slovenian",   label: "SL — Slovenščina",        name: "Slovenian" },
+  { code: "latvian",     label: "LV — Latviešu",           name: "Latvian" },
+  { code: "lithuanian",  label: "LT — Lietuvių",           name: "Lithuanian" },
+  { code: "estonian",    label: "ET — Eesti",              name: "Estonian" },
+  { code: "albanian",    label: "SQ — Shqip",              name: "Albanian" },
+  { code: "georgian",    label: "KA — ქართული",            name: "Georgian" },
+  { code: "armenian",    label: "HY — Հայերեն",            name: "Armenian" },
+  { code: "icelandic",   label: "IS — Íslenska",           name: "Icelandic" },
+  { code: "afrikaans",   label: "AF — Afrikaans",          name: "Afrikaans" },
+  { code: "tamil",       label: "TA — தமிழ்",               name: "Tamil" },
+  { code: "telugu",      label: "TE — తెలుగు",              name: "Telugu" },
+  { code: "marathi",     label: "MR — मराठी",               name: "Marathi" },
+  { code: "urdu",        label: "UR — اردو",               name: "Urdu" },
+  { code: "nepali",      label: "NE — नेपाली",              name: "Nepali" },
+  { code: "sinhala",     label: "SI — සිංහල",              name: "Sinhala" },
+  { code: "burmese",     label: "MY — မြန်မာဘာသာ",         name: "Burmese" },
+  { code: "khmer",       label: "KM — ភាសាខ្មែរ",          name: "Khmer" },
+  { code: "mongolian",   label: "MN — Монгол",             name: "Mongolian" },
+  { code: "amharic",     label: "AM — አማርኛ",              name: "Amharic" },
+  { code: "yoruba",      label: "YO — Yorùbá",             name: "Yoruba" },
+  { code: "hausa",       label: "HA — Hausa",              name: "Hausa" },
+  { code: "zulu",        label: "ZU — isiZulu",            name: "Zulu" },
+  { code: "welsh",       label: "CY — Cymraeg",            name: "Welsh" },
+  { code: "irish",       label: "GA — Gaeilge",            name: "Irish" },
 ];
+
+function getLangName(code) {
+  const found = LANGUAGES.find(l => l.code === code);
+  return found ? found.name : code;
+}
 
 function formatDate(iso) {
   const d = new Date(iso);
@@ -130,6 +190,9 @@ export default function App() {
   const [theme, setTheme] = useState(() => localStorage.getItem("bd-theme") || "dark");
   const [listening, setListening] = useState(false);
   const recognitionRef = useRef(null);
+  const [langOpen, setLangOpen] = useState(false);
+  const [langSearch, setLangSearch] = useState("");
+  const langRef = useRef(null);
   const [token, setToken] = useState(() => localStorage.getItem("bd-token") || null);
   const [user, setUser] = useState(() => {
     try { return JSON.parse(localStorage.getItem("bd-user") || "null"); } catch { return null; }
@@ -169,6 +232,14 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem("bd-lang", language);
   }, [language]);
+
+  useEffect(() => {
+    const handleClick = (e) => {
+      if (langRef.current && !langRef.current.contains(e.target)) setLangOpen(false);
+    };
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
 
   const fetchItems = useCallback(async () => {
     if (!token) return;
@@ -244,7 +315,7 @@ export default function App() {
       const res = await fetch("/api/process", {
         method: "POST",
         headers: authHeaders,
-        body: JSON.stringify({ text, language }),
+        body: JSON.stringify({ text, language: getLangName(language) }),
       });
       const data = await res.json();
       if (data.error) {
@@ -378,15 +449,43 @@ export default function App() {
               style={{ background: th.color }} onClick={() => setTheme(th.id)} title={th.label} />
           ))}
         </div>
-        <select
-          className="lang-select"
-          value={language}
-          onChange={(e) => setLanguage(e.target.value)}
-        >
-          {LANGUAGES.map((l) => (
-            <option key={l.code} value={l.code}>{l.label}</option>
-          ))}
-        </select>
+        <div className="lang-dropdown" ref={langRef}>
+          <button className="lang-dropdown-btn" onClick={() => { setLangOpen(o => !o); setLangSearch(""); }}>
+            {LANGUAGES.find(l => l.code === language)?.label || language}
+          </button>
+          {langOpen && (
+            <div className="lang-dropdown-menu">
+              <input
+                className="lang-search"
+                placeholder="Search…"
+                value={langSearch}
+                onChange={e => setLangSearch(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === "Enter" && langSearch.trim()) {
+                    const match = LANGUAGES.find(l =>
+                      l.label.toLowerCase().includes(langSearch.toLowerCase()) ||
+                      l.name.toLowerCase().includes(langSearch.toLowerCase())
+                    );
+                    if (match) { setLanguage(match.code); setLangOpen(false); setLangSearch(""); }
+                  }
+                  if (e.key === "Escape") setLangOpen(false);
+                }}
+                autoFocus
+              />
+              <div className="lang-options">
+                {LANGUAGES
+                  .filter(l => l.label.toLowerCase().includes(langSearch.toLowerCase()) || l.name.toLowerCase().includes(langSearch.toLowerCase()))
+                  .map(l => (
+                    <div key={l.code} className={`lang-option${language === l.code ? " active" : ""}`}
+                      onClick={() => { setLanguage(l.code); setLangOpen(false); setLangSearch(""); }}>
+                      {l.label}
+                    </div>
+                  ))
+                }
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Capture zone */}
