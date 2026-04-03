@@ -53,6 +53,7 @@ def init_db():
         ("due_date", "TEXT DEFAULT NULL"),
         ("urgent", "INTEGER DEFAULT 0"),
         ("workspace_id", "TEXT DEFAULT NULL"),
+        ("tags", "TEXT DEFAULT '[]'"),
     ]:
         try:
             cur.execute(f"ALTER TABLE items ADD COLUMN IF NOT EXISTS {col} {definition}")
@@ -491,6 +492,7 @@ def get_items():
     for row in rows:
         item = dict(row)
         item["subtasks"] = json.loads(item["subtasks"])
+        item["tags"] = json.loads(item.get("tags") or "[]")
         item["completed"] = bool(item["completed"])
         item["urgent"] = bool(item.get("urgent", 0))
         cur.execute("SELECT subtask_index, completed FROM subtask_status WHERE item_id = %s", (item["id"],))
@@ -511,7 +513,7 @@ def create_item():
     conn = get_db()
     cur = conn.cursor()
     cur.execute(
-        "INSERT INTO items (user_id, type, title, content, subtasks, due_date, urgent, workspace_id, created_at) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id",
+        "INSERT INTO items (user_id, type, title, content, subtasks, due_date, urgent, workspace_id, tags, created_at) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id",
         (
             user_id,
             data["type"],
@@ -521,6 +523,7 @@ def create_item():
             data.get("due_date") or None,
             int(data.get("urgent", False)),
             data.get("workspace_id") or None,
+            json.dumps(data.get("tags", [])),
             datetime.now().isoformat(),
         ),
     )

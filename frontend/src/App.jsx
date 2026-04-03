@@ -120,6 +120,26 @@ function Badge({ type }) {
   );
 }
 
+const TAG_COLORS = [
+  "#3b82f6","#8b5cf6","#ec4899","#f97316","#10b981",
+  "#06b6d4","#f59e0b","#6366f1","#84cc16","#ef4444",
+];
+function tagColor(tag) {
+  let h = 0;
+  for (let i = 0; i < tag.length; i++) h = (h * 31 + tag.charCodeAt(i)) & 0xffff;
+  return TAG_COLORS[h % TAG_COLORS.length];
+}
+
+function TagChip({ tag, onRemove }) {
+  const color = tagColor(tag);
+  return (
+    <span className="tag-chip" style={{ background: color + "22", color, border: `1px solid ${color}55` }}>
+      {tag}
+      {onRemove && <button className="tag-remove" onClick={onRemove}>×</button>}
+    </span>
+  );
+}
+
 function formatDueDate(iso) {
   if (!iso) return null;
   const d = new Date(iso + "T00:00:00");
@@ -168,6 +188,11 @@ function ItemCard({ item, onToggle, onToggleSubtask, onDelete, onToggleUrgent })
               </span>
             )}
           </div>
+          {item.tags && item.tags.length > 0 && (
+            <div className="item-tags">
+              {item.tags.map(tag => <TagChip key={tag} tag={tag} />)}
+            </div>
+          )}
         </div>
         <div className="item-actions">
           <button
@@ -228,6 +253,8 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [previews, setPreviews] = useState([]);
   const [previewDates, setPreviewDates] = useState({});
+  const [previewTags, setPreviewTags] = useState({});
+  const [tagInputs, setTagInputs] = useState({});
   const [items, setItems] = useState([]);
   const [filter, setFilter] = useState("all");
   const [error, setError] = useState(null);
@@ -479,7 +506,7 @@ export default function App() {
         fetch("/api/items", {
           method: "POST",
           headers: authHeaders,
-          body: JSON.stringify({ ...p, due_date: previewDates[idx] || null, workspace_id: workspaceId }),
+          body: JSON.stringify({ ...p, due_date: previewDates[idx] || null, workspace_id: workspaceId, tags: previewTags[idx] || [] }),
         })
       ));
       for (const r of results) {
@@ -492,6 +519,8 @@ export default function App() {
       }
       setPreviews([]);
       setPreviewDates({});
+      setPreviewTags({});
+      setTagInputs({});
       setText("");
       fetchItems();
     } catch {
@@ -578,9 +607,12 @@ export default function App() {
       ? urgentItems
       : filter === "all"
         ? activeItems
-        : activeItems.filter(i => i.type === filter);
+        : allTags.includes(filter)
+          ? activeItems.filter(i => (i.tags || []).includes(filter))
+          : activeItems.filter(i => i.type === filter);
 
   const currentWs = workspaces.find(w => w.id === workspaceId) || null;
+  const allTags = [...new Set(items.flatMap(i => i.tags || []))].sort();
 
   const totalByType = FILTERS.slice(1).reduce((acc, f) => {
     acc[f.key] = activeItems.filter((i) => i.type === f.key).length;
@@ -771,6 +803,52 @@ export default function App() {
                   onChange={e => setPreviewDates(d => ({ ...d, [idx]: e.target.value }))}
                 />
               </div>
+              <div className="preview-tags-row">
+                <div className="preview-tags-chips">
+                  {(previewTags[idx] || []).map(tag => (
+                    <TagChip key={tag} tag={tag} onRemove={() =>
+                      setPreviewTags(pt => ({ ...pt, [idx]: (pt[idx] || []).filter(t => t !== tag) }))
+                    } />
+                  ))}
+                </div>
+                <div className="tag-input-wrap">
+                  <span className="preview-due-label">🏷 Catégorie</span>
+                  <input
+                    className="tag-input"
+                    placeholder="Ajouter… (Entrée)"
+                    value={tagInputs[idx] || ""}
+                    onChange={e => setTagInputs(ti => ({ ...ti, [idx]: e.target.value }))}
+                    onKeyDown={e => {
+                      if ((e.key === "Enter" || e.key === ",") && (tagInputs[idx] || "").trim()) {
+                        e.preventDefault();
+                        const tag = tagInputs[idx].trim().replace(/,/g, "");
+                        if (tag && !(previewTags[idx] || []).includes(tag)) {
+                          setPreviewTags(pt => ({ ...pt, [idx]: [...(pt[idx] || []), tag] }));
+                        }
+                        setTagInputs(ti => ({ ...ti, [idx]: "" }));
+                      }
+                    }}
+                  />
+                  {/* Suggest existing tags */}
+                  {tagInputs[idx] && (() => {
+                    const allTags = [...new Set(items.flatMap(i => i.tags || []))];
+                    const suggestions = allTags.filter(t =>
+                      t.toLowerCase().includes((tagInputs[idx] || "").toLowerCase()) &&
+                      !(previewTags[idx] || []).includes(t)
+                    );
+                    return suggestions.length > 0 ? (
+                      <div className="tag-suggestions">
+                        {suggestions.map(t => (
+                          <span key={t} className="tag-suggestion" onClick={() => {
+                            setPreviewTags(pt => ({ ...pt, [idx]: [...(pt[idx] || []), t] }));
+                            setTagInputs(ti => ({ ...ti, [idx]: "" }));
+                          }}>{t}</span>
+                        ))}
+                      </div>
+                    ) : null;
+                  })()}
+                </div>
+              </div>
             </div>
           ))}
           <div className="preview-actions">
@@ -804,6 +882,21 @@ export default function App() {
             )}
           </button>
         ))}
+        {allTags.map(tag => {
+          const color = tagColor(tag);
+          const count = activeItems.filter(i => (i.tags || []).includes(tag)).length;
+          return (
+            <button
+              key={tag}
+              className={`filter-btn tag-filter-btn${filter === tag ? " active" : ""}`}
+              style={filter === tag ? { background: color + "33", color, borderColor: color } : { borderColor: color + "66", color }}
+              onClick={() => setFilter(tag)}
+            >
+              🏷 {tag}
+              {count > 0 && <span style={{ marginLeft: 5, opacity: 0.75 }}>{count}</span>}
+            </button>
+          );
+        })}
       </div>
 
       {/* Items */}
