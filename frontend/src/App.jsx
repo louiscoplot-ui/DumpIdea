@@ -142,11 +142,11 @@ function calendarUrl(item) {
   return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${title}&dates=${d}/${dEnd}&details=${details}`;
 }
 
-function ItemCard({ item, onToggle, onToggleSubtask, onDelete }) {
+function ItemCard({ item, onToggle, onToggleSubtask, onDelete, onToggleUrgent }) {
   const due = formatDueDate(item.due_date);
   const calUrl = calendarUrl(item);
   return (
-    <div className={`item-card${item.completed ? " completed" : ""}`}>
+    <div className={`item-card${item.completed ? " completed" : ""}${item.urgent ? " urgent-card" : ""}`}>
       <div className="item-card-header">
         <input
           type="checkbox"
@@ -155,7 +155,10 @@ function ItemCard({ item, onToggle, onToggleSubtask, onDelete }) {
           onChange={() => onToggle(item.id, item.completed)}
         />
         <div className="item-card-body">
-          <div className="item-title">{item.title}</div>
+          <div className="item-title">
+            {item.urgent && <span className="badge-urgent">URGENT</span>}
+            {item.title}
+          </div>
           <div className="item-meta">
             <Badge type={item.type} />
             <span className="item-date">{formatDate(item.created_at)}</span>
@@ -167,6 +170,11 @@ function ItemCard({ item, onToggle, onToggleSubtask, onDelete }) {
           </div>
         </div>
         <div className="item-actions">
+          <button
+            className={`btn-urgent${item.urgent ? " on" : ""}`}
+            onClick={() => onToggleUrgent(item.id, item.urgent)}
+            title={item.urgent ? "Retirer urgent" : "Marquer urgent"}
+          >🔴</button>
           {calUrl && (
             <a className="btn-calendar" href={calUrl} target="_blank" rel="noreferrer" title="Ajouter au calendrier">
               📅
@@ -234,6 +242,65 @@ export default function App() {
   const [user, setUser] = useState(() => {
     try { return JSON.parse(localStorage.getItem("bd-user") || "null"); } catch { return null; }
   });
+  const [workspaces, setWorkspaces] = useState([]);
+  const [workspaceId, setWorkspaceId] = useState(null); // null = personal
+  const [wsOpen, setWsOpen] = useState(false);
+  const [showCreateWs, setShowCreateWs] = useState(false);
+  const [newWsName, setNewWsName] = useState("");
+  const [inviteLink, setInviteLink] = useState(null);
+  const [inviteCopied, setInviteCopied] = useState(false);
+  const wsRef = useRef(null);
+  const pendingJoinToken = useRef(
+    new URLSearchParams(window.location.search).get("join")
+  );
+
+  const fetchWorkspaces = useCallback(async (accessToken) => {
+    const t = accessToken || token;
+    if (!t) return;
+    try {
+      const res = await fetch("/api/workspaces", {
+        headers: { Authorization: `Bearer ${t}` },
+      });
+      if (res.ok) setWorkspaces(await res.json());
+    } catch {}
+  }, [token]);
+
+  const createWorkspace = async () => {
+    if (!newWsName.trim()) return;
+    const res = await fetch("/api/workspaces", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ name: newWsName.trim() }),
+    });
+    if (res.ok) {
+      const ws = await res.json();
+      setWorkspaces(prev => [ws, ...prev]);
+      setWorkspaceId(ws.id);
+      setNewWsName("");
+      setShowCreateWs(false);
+      setWsOpen(false);
+    }
+  };
+
+  const generateInvite = async (wsId) => {
+    const res = await fetch(`/api/workspaces/${wsId}/invite`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (res.ok) {
+      const { token: invToken } = await res.json();
+      const base = window.location.origin;
+      setInviteLink(`${base}?join=${invToken}`);
+      setInviteCopied(false);
+    }
+  };
+
+  const copyInvite = () => {
+    if (!inviteLink) return;
+    navigator.clipboard.writeText(inviteLink);
+    setInviteCopied(true);
+    setTimeout(() => setInviteCopied(false), 2500);
+  };
 
   const subscribePush = async (accessToken) => {
     if (!("serviceWorker" in navigator) || !("PushManager" in window)) return;
@@ -264,6 +331,23 @@ export default function App() {
       localStorage.setItem("bd-token", t);
       localStorage.setItem("bd-user", JSON.stringify(profile));
       subscribePush(t);
+      fetchWorkspaces(t);
+      // Handle pending join token from URL
+      if (pendingJoinToken.current) {
+        try {
+          const jr = await fetch(`/api/workspaces/join/${pendingJoinToken.current}`, {
+            method: "POST",
+            headers: { Authorization: `Bearer ${t}` },
+          });
+          if (jr.ok) {
+            const ws = await jr.json();
+            setWorkspaces(prev => [...prev, ws]);
+            setWorkspaceId(ws.id);
+            window.history.replaceState({}, "", window.location.pathname);
+          }
+        } catch {}
+        pendingJoinToken.current = null;
+      }
     },
   });
 
@@ -274,6 +358,8 @@ export default function App() {
     localStorage.removeItem("bd-token");
     localStorage.removeItem("bd-user");
     setItems([]);
+    setWorkspaces([]);
+    setWorkspaceId(null);
   };
 
   const authHeaders = token
@@ -292,6 +378,7 @@ export default function App() {
   useEffect(() => {
     const handleClick = (e) => {
       if (langRef.current && !langRef.current.contains(e.target)) setLangOpen(false);
+      if (wsRef.current && !wsRef.current.contains(e.target)) setWsOpen(false);
     };
     document.addEventListener("mousedown", handleClick);
     return () => document.removeEventListener("mousedown", handleClick);
@@ -300,19 +387,18 @@ export default function App() {
   const fetchItems = useCallback(async () => {
     if (!token) return;
     try {
-      const res = await fetch(`/api/items`, {
+      const url = workspaceId ? `/api/items?workspace_id=${workspaceId}` : `/api/items`;
+      const res = await fetch(url, {
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
       });
       if (res.status === 401) { logout(); return; }
       const data = await res.json();
       setItems(Array.isArray(data) ? data : []);
-    } catch {
-      // ignore fetch errors for list
-    }
-  }, [token]);
+    } catch {}
+  }, [token, workspaceId]);
 
   useEffect(() => {
-    if (token) fetchItems();
+    if (token) { fetchItems(); fetchWorkspaces(); }
   }, [fetchItems, token]);
 
   const handleKeyDown = (e) => {
@@ -393,7 +479,7 @@ export default function App() {
         fetch("/api/items", {
           method: "POST",
           headers: authHeaders,
-          body: JSON.stringify({ ...p, due_date: previewDates[idx] || null }),
+          body: JSON.stringify({ ...p, due_date: previewDates[idx] || null, workspace_id: workspaceId }),
         })
       ));
       for (const r of results) {
@@ -439,6 +525,15 @@ export default function App() {
     fetch(`/api/items/${id}`, { method: "DELETE", headers: authHeaders });
   };
 
+  const toggleUrgent = (id, currentUrgent) => {
+    setItems(prev => prev.map(i => i.id === id ? { ...i, urgent: !currentUrgent } : i));
+    fetch(`/api/items/${id}`, {
+      method: "PUT",
+      headers: authHeaders,
+      body: JSON.stringify({ urgent: !currentUrgent }),
+    });
+  };
+
   const t = T[language] || T.french;
 
   if (!token) {
@@ -465,6 +560,7 @@ export default function App() {
 
   const FILTERS_T = [
     { key: "all",       label: t.all },
+    { key: "urgent",    label: "🔴 Urgent" },
     { key: "todo",      label: t.todo },
     { key: "idea",      label: t.ideas },
     { key: "call_note", label: t.calls },
@@ -474,12 +570,17 @@ export default function App() {
 
   const activeItems = items.filter(i => !i.completed);
   const doneItems = items.filter(i => i.completed);
+  const urgentItems = activeItems.filter(i => i.urgent);
 
   const filteredItems = filter === "done"
     ? doneItems
-    : filter === "all"
-      ? activeItems
-      : activeItems.filter(i => i.type === filter);
+    : filter === "urgent"
+      ? urgentItems
+      : filter === "all"
+        ? activeItems
+        : activeItems.filter(i => i.type === filter);
+
+  const currentWs = workspaces.find(w => w.id === workspaceId) || null;
 
   const totalByType = FILTERS.slice(1).reduce((acc, f) => {
     acc[f.key] = activeItems.filter((i) => i.type === f.key).length;
@@ -492,9 +593,58 @@ export default function App() {
       <div className="header">
         <DropLogo size={28} />
         <h1>Drople</h1>
-        {items.length > 0 && (
-          <span className="header-count">{items.length} {items.length > 1 ? t.entries : t.entry}</span>
+
+        {/* Workspace switcher */}
+        <div className="ws-switcher" ref={wsRef}>
+          <button className="ws-btn" onClick={() => setWsOpen(o => !o)}>
+            {currentWs ? `👥 ${currentWs.name}` : "👤 Personnel"}
+            <span className="ws-chevron">▾</span>
+          </button>
+          {wsOpen && (
+            <div className="ws-menu">
+              <div className={`ws-option${!workspaceId ? " active" : ""}`}
+                onClick={() => { setWorkspaceId(null); setWsOpen(false); setItems([]); }}>
+                👤 Personnel
+              </div>
+              {workspaces.map(ws => (
+                <div key={ws.id} className={`ws-option${workspaceId === ws.id ? " active" : ""}`}
+                  onClick={() => { setWorkspaceId(ws.id); setWsOpen(false); setItems([]); }}>
+                  👥 {ws.name}
+                  {ws.is_owner && (
+                    <button className="ws-invite-btn" onClick={e => { e.stopPropagation(); generateInvite(ws.id); setWsOpen(false); }}
+                      title="Générer un lien d'invitation">🔗</button>
+                  )}
+                </div>
+              ))}
+              {showCreateWs ? (
+                <div className="ws-create">
+                  <input className="ws-name-input" placeholder="Nom du groupe…" value={newWsName}
+                    onChange={e => setNewWsName(e.target.value)}
+                    onKeyDown={e => { if (e.key === "Enter") createWorkspace(); if (e.key === "Escape") setShowCreateWs(false); }}
+                    autoFocus />
+                  <button className="ws-create-btn" onClick={createWorkspace}>Créer</button>
+                </div>
+              ) : (
+                <div className="ws-option ws-new" onClick={() => setShowCreateWs(true)}>
+                  + Nouveau groupe
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Invite link banner */}
+        {inviteLink && (
+          <div className="invite-banner">
+            <span className="invite-banner-label">Lien d'invitation :</span>
+            <span className="invite-banner-url">{inviteLink}</span>
+            <button className="invite-copy-btn" onClick={copyInvite}>
+              {inviteCopied ? "✓ Copié !" : "Copier"}
+            </button>
+            <button className="invite-close-btn" onClick={() => setInviteLink(null)}>×</button>
+          </div>
         )}
+
         <button className="btn-logout" onClick={logout} title="Se déconnecter">
           {user?.picture
             ? <img src={user.picture} alt="avatar" className="user-avatar" />
@@ -646,7 +796,10 @@ export default function App() {
             {f.key === "done" && doneItems.length > 0 && (
               <span style={{ marginLeft: 5, opacity: 0.75 }}>{doneItems.length}</span>
             )}
-            {f.key !== "all" && f.key !== "done" && totalByType[f.key] > 0 && (
+            {f.key === "urgent" && urgentItems.length > 0 && (
+              <span style={{ marginLeft: 5, opacity: 0.75 }}>{urgentItems.length}</span>
+            )}
+            {f.key !== "all" && f.key !== "done" && f.key !== "urgent" && totalByType[f.key] > 0 && (
               <span style={{ marginLeft: 5, opacity: 0.75 }}>{totalByType[f.key]}</span>
             )}
           </button>
@@ -669,6 +822,7 @@ export default function App() {
               onToggle={toggleItem}
               onToggleSubtask={toggleSubtask}
               onDelete={deleteItem}
+              onToggleUrgent={toggleUrgent}
             />
           ))
         )}

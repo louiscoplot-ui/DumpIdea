@@ -854,6 +854,180 @@ html, body {
 ::-webkit-scrollbar-track { background: var(--bg); }
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
 
+/* ─── Urgent ─── */
+
+.badge-urgent {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 700;
+  color: #fff;
+  background: #e53e3e;
+  border-radius: 4px;
+  padding: 1px 5px;
+  margin-right: 6px;
+  letter-spacing: 0.04em;
+  vertical-align: middle;
+}
+
+.urgent-card {
+  border-left: 3px solid #e53e3e !important;
+}
+
+.btn-urgent {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-size: 13px;
+  padding: 2px 3px;
+  opacity: 0.25;
+  transition: opacity 0.15s;
+  line-height: 1;
+}
+.btn-urgent:hover { opacity: 0.7; }
+.btn-urgent.on { opacity: 1; }
+
+/* ─── Workspace switcher ─── */
+
+.ws-switcher {
+  position: relative;
+}
+
+.ws-btn {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+  transition: border-color 0.15s, color 0.15s;
+}
+.ws-btn:hover { border-color: var(--border-focus); color: var(--text); }
+
+.ws-chevron { font-size: 10px; opacity: 0.6; }
+
+.ws-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.25);
+  z-index: 200;
+  min-width: 200px;
+  overflow: hidden;
+}
+
+.ws-option {
+  padding: 9px 14px;
+  font-size: 13px;
+  color: var(--text-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: background 0.1s, color 0.1s;
+}
+.ws-option:hover { background: var(--surface2); color: var(--text); }
+.ws-option.active { color: var(--text); font-weight: 600; }
+.ws-option.ws-new { color: var(--border-focus); border-top: 1px solid var(--border); }
+
+.ws-invite-btn {
+  margin-left: auto;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+  opacity: 0.5;
+  padding: 0 4px;
+  transition: opacity 0.15s;
+}
+.ws-invite-btn:hover { opacity: 1; }
+
+.ws-create {
+  padding: 8px 10px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  gap: 6px;
+}
+.ws-name-input {
+  flex: 1;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 5px 8px;
+  font-size: 12px;
+  color: var(--text);
+  outline: none;
+}
+.ws-name-input:focus { border-color: var(--border-focus); }
+.ws-create-btn {
+  background: var(--border-focus);
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 5px 10px;
+  font-size: 12px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+/* ─── Invite banner ─── */
+
+.invite-banner {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--surface);
+  border: 1px solid var(--border-focus);
+  border-radius: 10px;
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+  z-index: 300;
+  max-width: 90vw;
+  flex-wrap: wrap;
+}
+.invite-banner-label { font-size: 12px; color: var(--text-muted); white-space: nowrap; }
+.invite-banner-url {
+  font-size: 11px;
+  color: var(--border-focus);
+  font-family: monospace;
+  max-width: 260px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.invite-copy-btn {
+  background: var(--border-focus);
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 4px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.invite-close-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: 16px;
+  cursor: pointer;
+  padding: 0 4px;
+  line-height: 1;
+}
+
 /* ─── Due date & Calendar ─── */
 
 .item-due {

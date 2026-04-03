@@ -1,5 +1,7 @@
 import os
 import json
+import uuid
+import secrets
 from datetime import datetime, date, timedelta
 from flask import Flask, request, jsonify
 from flask_cors import CORS
@@ -19,7 +21,7 @@ CORS(app)
 DATABASE_URL = os.environ.get("DATABASE_URL", "")
 VAPID_PRIVATE_KEY = os.environ.get("VAPID_PRIVATE_KEY", "")
 VAPID_PUBLIC_KEY = os.environ.get("VAPID_PUBLIC_KEY", "")
-VAPID_EMAIL = os.environ.get("VAPID_EMAIL", "mailto:hello@drople.app")
+VAPID_EMAIL = os.environ.get("VAPID_EMAIL", "mailto:hello@dropleapp.com")
 
 
 def get_db():
@@ -30,6 +32,7 @@ def get_db():
 def init_db():
     conn = get_db()
     cur = conn.cursor()
+
     cur.execute("""
         CREATE TABLE IF NOT EXISTS items (
             id SERIAL PRIMARY KEY,
@@ -40,12 +43,22 @@ def init_db():
             subtasks TEXT DEFAULT '[]',
             completed INTEGER DEFAULT 0,
             due_date TEXT DEFAULT NULL,
+            urgent INTEGER DEFAULT 0,
+            workspace_id TEXT DEFAULT NULL,
             created_at TEXT NOT NULL
         )
     """)
-    cur.execute("""
-        ALTER TABLE items ADD COLUMN IF NOT EXISTS due_date TEXT DEFAULT NULL
-    """)
+    # Migrations for existing tables
+    for col, definition in [
+        ("due_date", "TEXT DEFAULT NULL"),
+        ("urgent", "INTEGER DEFAULT 0"),
+        ("workspace_id", "TEXT DEFAULT NULL"),
+    ]:
+        try:
+            cur.execute(f"ALTER TABLE items ADD COLUMN IF NOT EXISTS {col} {definition}")
+        except Exception:
+            conn.rollback()
+
     cur.execute("""
         CREATE TABLE IF NOT EXISTS subtask_status (
             item_id INTEGER,
@@ -54,6 +67,7 @@ def init_db():
             PRIMARY KEY (item_id, subtask_index)
         )
     """)
+
     cur.execute("""
         CREATE TABLE IF NOT EXISTS push_subscriptions (
             id SERIAL PRIMARY KEY,
@@ -64,6 +78,31 @@ def init_db():
             created_at TEXT NOT NULL
         )
     """)
+
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS workspaces (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            owner_id TEXT NOT NULL,
+            created_at TEXT NOT NULL
+        )
+    """)
+
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS workspace_members (
+            id SERIAL PRIMARY KEY,
+            workspace_id TEXT NOT NULL,
+            user_id TEXT DEFAULT NULL,
+            user_email TEXT DEFAULT NULL,
+            user_name TEXT DEFAULT NULL,
+            user_picture TEXT DEFAULT NULL,
+            invite_token TEXT UNIQUE NOT NULL,
+            status TEXT DEFAULT 'pending',
+            invited_at TEXT NOT NULL,
+            joined_at TEXT DEFAULT NULL
+        )
+    """)
+
     conn.commit()
     cur.close()
     conn.close()
@@ -92,12 +131,33 @@ def get_user_id():
             timeout=5,
         )
         if resp.status_code == 200:
-            user_id = resp.json().get("sub")
+            data = resp.json()
+            user_id = data.get("sub")
             _token_cache[token] = (time.time(), user_id)
             return user_id
     except Exception:
         pass
     return None
+
+
+def get_user_info():
+    """Returns (user_id, email, name, picture) from token."""
+    auth = request.headers.get("Authorization", "")
+    if not auth.startswith("Bearer "):
+        return None, None, None, None
+    token = auth[7:]
+    try:
+        resp = http_requests.get(
+            "https://www.googleapis.com/oauth2/v3/userinfo",
+            headers={"Authorization": f"Bearer {token}"},
+            timeout=5,
+        )
+        if resp.status_code == 200:
+            d = resp.json()
+            return d.get("sub"), d.get("email"), d.get("name"), d.get("picture")
+    except Exception:
+        pass
+    return None, None, None, None
 
 
 def send_push_to_user(user_id, title, body):
@@ -123,7 +183,6 @@ def send_push_to_user(user_id, title, body):
                 )
             except WebPushException as ex:
                 if ex.response and ex.response.status_code == 410:
-                    # Subscription expired — remove it
                     conn2 = get_db()
                     cur2 = conn2.cursor()
                     cur2.execute("DELETE FROM push_subscriptions WHERE endpoint = %s", (sub["endpoint"],))
@@ -135,46 +194,59 @@ def send_push_to_user(user_id, title, body):
 
 
 def check_reminders():
-    """Run daily: send push notifications for items due today or tomorrow."""
+    """Daily cron: due today/tomorrow + overdue + stale todos."""
     try:
         conn = get_db()
         cur = conn.cursor()
         today = date.today().isoformat()
         tomorrow = (date.today() + timedelta(days=1)).isoformat()
+        stale_cutoff = (date.today() - timedelta(days=5)).isoformat()
+
+        # Due today or tomorrow
         cur.execute(
             "SELECT * FROM items WHERE completed = 0 AND due_date IN (%s, %s)",
             (today, tomorrow),
         )
-        rows = cur.fetchall()
+        for row in cur.fetchall():
+            label = "aujourd'hui" if row["due_date"] == today else "demain"
+            send_push_to_user(row["user_id"], "⏰ Rappel Drople", f"{row['title']} — échéance {label}")
+
+        # Overdue (past due date, not done)
+        cur.execute(
+            "SELECT * FROM items WHERE completed = 0 AND due_date IS NOT NULL AND due_date < %s",
+            (today,),
+        )
+        for row in cur.fetchall():
+            send_push_to_user(row["user_id"], "🔴 En retard — Drople", f"As-tu fait : {row['title']} ?")
+
+        # Stale todos (no due date, older than 5 days, not done)
+        cur.execute(
+            "SELECT * FROM items WHERE completed = 0 AND type = 'todo' AND due_date IS NULL AND created_at < %s",
+            (stale_cutoff,),
+        )
+        for row in cur.fetchall():
+            send_push_to_user(row["user_id"], "💭 Drople te rappelle", f"Tu n'as pas encore fait : {row['title']}")
+
         cur.close()
         conn.close()
-        for row in rows:
-            is_today = row["due_date"] == today
-            label = "aujourd'hui" if is_today else "demain"
-            send_push_to_user(
-                row["user_id"],
-                f"⏰ Rappel Drople",
-                f"{row['title']} — échéance {label}",
-            )
     except Exception as e:
         print(f"Reminder check error: {e}")
 
 
-# Schedule reminder check every day at 8:00 AM
 scheduler = BackgroundScheduler()
-scheduler.add_job(check_reminders, "cron", hour=8, minute=0)
+scheduler.add_job(check_reminders, "cron", hour=9, minute=0)
 scheduler.start()
 
+
+# ─── Routes ───────────────────────────────────────────────────────────────────
 
 @app.route("/", methods=["GET"])
 def root():
     return "OK", 200
 
-
 @app.route("/api/ping", methods=["GET"])
 def ping():
     return jsonify({"status": "alive"})
-
 
 @app.route("/api/health", methods=["GET"])
 def health():
@@ -189,11 +261,9 @@ def health():
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 
-
 @app.route("/api/vapid-public-key", methods=["GET"])
 def get_vapid_public_key():
     return jsonify({"key": VAPID_PUBLIC_KEY})
-
 
 @app.route("/api/push/subscribe", methods=["POST"])
 def push_subscribe():
@@ -207,38 +277,157 @@ def push_subscribe():
         INSERT INTO push_subscriptions (user_id, endpoint, p256dh, auth, created_at)
         VALUES (%s, %s, %s, %s, %s)
         ON CONFLICT (endpoint) DO UPDATE SET user_id = EXCLUDED.user_id
-    """, (
-        user_id,
-        data["endpoint"],
-        data["keys"]["p256dh"],
-        data["keys"]["auth"],
-        datetime.now().isoformat(),
-    ))
+    """, (user_id, data["endpoint"], data["keys"]["p256dh"], data["keys"]["auth"], datetime.now().isoformat()))
     conn.commit()
     cur.close()
     conn.close()
     return jsonify({"success": True})
 
 
+# ─── Workspaces ───────────────────────────────────────────────────────────────
+
+@app.route("/api/workspaces", methods=["GET"])
+def get_workspaces():
+    user_id = get_user_id()
+    if not user_id:
+        return jsonify({"error": "Unauthorized"}), 401
+    conn = get_db()
+    cur = conn.cursor()
+    # Owned workspaces
+    cur.execute("SELECT * FROM workspaces WHERE owner_id = %s ORDER BY created_at DESC", (user_id,))
+    owned = [dict(r) for r in cur.fetchall()]
+    # Member workspaces
+    cur.execute("""
+        SELECT w.* FROM workspaces w
+        JOIN workspace_members m ON m.workspace_id = w.id
+        WHERE m.user_id = %s AND m.status = 'active'
+        ORDER BY w.created_at DESC
+    """, (user_id,))
+    member = [dict(r) for r in cur.fetchall()]
+    # Merge, deduplicate
+    seen = set()
+    result = []
+    for w in owned + member:
+        if w["id"] not in seen:
+            seen.add(w["id"])
+            w["is_owner"] = w["owner_id"] == user_id
+            # Get members
+            cur.execute("""
+                SELECT user_name, user_picture, status FROM workspace_members
+                WHERE workspace_id = %s
+            """, (w["id"],))
+            w["members"] = [dict(r) for r in cur.fetchall()]
+            result.append(w)
+    cur.close()
+    conn.close()
+    return jsonify(result)
+
+
+@app.route("/api/workspaces", methods=["POST"])
+def create_workspace():
+    user_id = get_user_id()
+    if not user_id:
+        return jsonify({"error": "Unauthorized"}), 401
+    data = request.json
+    wid = str(uuid.uuid4())
+    conn = get_db()
+    cur = conn.cursor()
+    cur.execute(
+        "INSERT INTO workspaces (id, name, owner_id, created_at) VALUES (%s, %s, %s, %s)",
+        (wid, data["name"], user_id, datetime.now().isoformat())
+    )
+    conn.commit()
+    cur.close()
+    conn.close()
+    return jsonify({"id": wid, "name": data["name"], "owner_id": user_id, "is_owner": True, "members": []})
+
+
+@app.route("/api/workspaces/<wid>", methods=["DELETE"])
+def delete_workspace(wid):
+    user_id = get_user_id()
+    if not user_id:
+        return jsonify({"error": "Unauthorized"}), 401
+    conn = get_db()
+    cur = conn.cursor()
+    cur.execute("DELETE FROM workspaces WHERE id = %s AND owner_id = %s", (wid, user_id))
+    cur.execute("DELETE FROM workspace_members WHERE workspace_id = %s", (wid,))
+    cur.execute("UPDATE items SET workspace_id = NULL WHERE workspace_id = %s", (wid,))
+    conn.commit()
+    cur.close()
+    conn.close()
+    return jsonify({"success": True})
+
+
+@app.route("/api/workspaces/<wid>/invite", methods=["POST"])
+def create_invite(wid):
+    user_id = get_user_id()
+    if not user_id:
+        return jsonify({"error": "Unauthorized"}), 401
+    # Verify user is owner or member
+    conn = get_db()
+    cur = conn.cursor()
+    cur.execute("SELECT id FROM workspaces WHERE id = %s AND owner_id = %s", (wid, user_id))
+    if not cur.fetchone():
+        cur.execute("SELECT id FROM workspace_members WHERE workspace_id = %s AND user_id = %s AND status = 'active'", (wid, user_id))
+        if not cur.fetchone():
+            cur.close(); conn.close()
+            return jsonify({"error": "Forbidden"}), 403
+    token = secrets.token_urlsafe(20)
+    cur.execute("""
+        INSERT INTO workspace_members (workspace_id, invite_token, status, invited_at)
+        VALUES (%s, %s, 'pending', %s)
+    """, (wid, token, datetime.now().isoformat()))
+    conn.commit()
+    cur.close()
+    conn.close()
+    return jsonify({"token": token})
+
+
+@app.route("/api/workspaces/join/<token>", methods=["POST"])
+def join_workspace(token):
+    user_id, email, name, picture = get_user_info()
+    if not user_id:
+        return jsonify({"error": "Unauthorized"}), 401
+    conn = get_db()
+    cur = conn.cursor()
+    cur.execute("SELECT * FROM workspace_members WHERE invite_token = %s AND status = 'pending'", (token,))
+    member = cur.fetchone()
+    if not member:
+        cur.close(); conn.close()
+        return jsonify({"error": "Invalid or already used invite"}), 404
+    cur.execute("""
+        UPDATE workspace_members
+        SET user_id = %s, user_email = %s, user_name = %s, user_picture = %s,
+            status = 'active', joined_at = %s
+        WHERE invite_token = %s
+    """, (user_id, email, name, picture, datetime.now().isoformat(), token))
+    # Get workspace info
+    cur.execute("SELECT * FROM workspaces WHERE id = %s", (member["workspace_id"],))
+    workspace = dict(cur.fetchone())
+    workspace["is_owner"] = False
+    workspace["members"] = []
+    conn.commit()
+    cur.close()
+    conn.close()
+    return jsonify(workspace)
+
+
+# ─── Items ────────────────────────────────────────────────────────────────────
+
 @app.route("/api/process", methods=["POST"])
 def process_text():
     user_id = get_user_id()
     if not user_id:
         return jsonify({"error": "Unauthorized"}), 401
-
     data = request.json
     raw_text = data.get("text", "").strip()
     language = data.get("language", "french")
-
     if not raw_text:
         return jsonify({"error": "No text provided"}), 400
-
     api_key = os.environ.get("ANTHROPIC_API_KEY", "")
     if not api_key:
         return jsonify({"error": "ANTHROPIC_API_KEY not set"}), 500
-
     client = anthropic.Anthropic(api_key=api_key)
-
     prompt = f"""You are a smart note-taking assistant. Always respond in {language}. The user gives you a raw drop of thoughts (messy, vague, incomplete sentences, abbreviations).
 
 Your job:
@@ -264,7 +453,6 @@ Return ONLY a valid JSON array (even if just one item), no markdown fences:
 
 Raw input:
 {raw_text}"""
-
     try:
         message = client.messages.create(
             model="claude-haiku-4-5-20251001",
@@ -291,27 +479,24 @@ def get_items():
     user_id = get_user_id()
     if not user_id:
         return jsonify({"error": "Unauthorized"}), 401
-
-    filter_type = request.args.get("type", "all")
+    workspace_id = request.args.get("workspace_id")
     conn = get_db()
     cur = conn.cursor()
-
-    if filter_type == "all":
-        cur.execute("SELECT * FROM items WHERE user_id = %s ORDER BY created_at DESC", (user_id,))
+    if workspace_id:
+        cur.execute("SELECT * FROM items WHERE workspace_id = %s ORDER BY created_at DESC", (workspace_id,))
     else:
-        cur.execute("SELECT * FROM items WHERE user_id = %s AND type = %s ORDER BY created_at DESC", (user_id, filter_type))
-
+        cur.execute("SELECT * FROM items WHERE user_id = %s AND (workspace_id IS NULL OR workspace_id = '') ORDER BY created_at DESC", (user_id,))
     rows = cur.fetchall()
     result = []
     for row in rows:
         item = dict(row)
         item["subtasks"] = json.loads(item["subtasks"])
         item["completed"] = bool(item["completed"])
+        item["urgent"] = bool(item.get("urgent", 0))
         cur.execute("SELECT subtask_index, completed FROM subtask_status WHERE item_id = %s", (item["id"],))
         statuses = cur.fetchall()
         item["subtask_status"] = {str(r["subtask_index"]): bool(r["completed"]) for r in statuses}
         result.append(item)
-
     cur.close()
     conn.close()
     return jsonify(result)
@@ -322,12 +507,11 @@ def create_item():
     user_id = get_user_id()
     if not user_id:
         return jsonify({"error": "Unauthorized"}), 401
-
     data = request.json
     conn = get_db()
     cur = conn.cursor()
     cur.execute(
-        "INSERT INTO items (user_id, type, title, content, subtasks, due_date, created_at) VALUES (%s, %s, %s, %s, %s, %s, %s) RETURNING id",
+        "INSERT INTO items (user_id, type, title, content, subtasks, due_date, urgent, workspace_id, created_at) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id",
         (
             user_id,
             data["type"],
@@ -335,6 +519,8 @@ def create_item():
             data["content"],
             json.dumps(data.get("subtasks", [])),
             data.get("due_date") or None,
+            int(data.get("urgent", False)),
+            data.get("workspace_id") or None,
             datetime.now().isoformat(),
         ),
     )
@@ -350,23 +536,20 @@ def update_item(item_id):
     user_id = get_user_id()
     if not user_id:
         return jsonify({"error": "Unauthorized"}), 401
-
     data = request.json
     conn = get_db()
     cur = conn.cursor()
-
     if "completed" in data and "subtask_index" not in data:
         cur.execute("UPDATE items SET completed = %s WHERE id = %s AND user_id = %s", (int(data["completed"]), item_id, user_id))
-
     if "subtask_index" in data:
         cur.execute(
-            "INSERT INTO subtask_status (item_id, subtask_index, completed) VALUES (%s, %s, %s) ON CONFLICT (item_id, subtask_index) DO UPDATE SET completed = EXCLUDED.completed",
+            "INSERT INTO subtask_status (item_id, subtask_index, completed) VALUES (%s,%s,%s) ON CONFLICT (item_id, subtask_index) DO UPDATE SET completed = EXCLUDED.completed",
             (item_id, data["subtask_index"], int(data["completed"])),
         )
-
     if "due_date" in data:
         cur.execute("UPDATE items SET due_date = %s WHERE id = %s AND user_id = %s", (data["due_date"] or None, item_id, user_id))
-
+    if "urgent" in data:
+        cur.execute("UPDATE items SET urgent = %s WHERE id = %s AND user_id = %s", (int(data["urgent"]), item_id, user_id))
     conn.commit()
     cur.close()
     conn.close()
@@ -378,7 +561,6 @@ def delete_item(item_id):
     user_id = get_user_id()
     if not user_id:
         return jsonify({"error": "Unauthorized"}), 401
-
     conn = get_db()
     cur = conn.cursor()
     cur.execute("DELETE FROM items WHERE id = %s AND user_id = %s", (item_id, user_id))
