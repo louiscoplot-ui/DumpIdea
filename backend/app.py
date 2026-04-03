@@ -125,7 +125,7 @@ def process_text():
 
     client = anthropic.Anthropic(api_key=api_key)
 
-    prompt = f"""You are a smart note-taking assistant. Always respond in {language}. The user gives you a raw braindump (messy, vague, incomplete sentences, abbreviations).
+    prompt = f"""You are a smart note-taking assistant. Always respond in {language}. The user gives you a raw drop of thoughts (messy, vague, incomplete sentences, abbreviations).
 
 Your job:
 1. Split the input into SEPARATE items if it contains multiple distinct thoughts, tasks or ideas. Each distinct action or idea = one item.

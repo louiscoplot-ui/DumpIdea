@@ -134,7 +134,6 @@ html, body {
 }
 
 .header-count {
-  margin-left: auto;
   font-size: 13px;
   color: var(--text-muted);
   background: var(--surface);
@@ -679,6 +678,7 @@ html, body {
   color: var(--text-muted);
   font-size: 16px;
   transition: opacity 0.15s;
+  margin-left: auto;
 }
 
 .btn-logout:hover { opacity: 0.7; }
@@ -840,6 +840,8 @@ html, body {
     gap: 8px;
     margin-bottom: 20px;
     flex-wrap: wrap;
+    /* Row 1: logo + title + spacer + avatar */
+    /* Row 2: theme dots + lang (pushed to second line via order) */
   }
 
   .header h1 {
@@ -847,21 +849,36 @@ html, body {
   }
 
   .header-count {
-    font-size: 12px;
-    padding: 2px 8px;
+    display: none; /* hide on mobile to save space */
   }
 
+  /* Avatar/logout stays on row 1, right side */
+  .btn-logout {
+    margin-left: auto;
+  }
+
+  /* Theme dots + lang dropdown drop to row 2 */
   .theme-dots {
-    gap: 6px;
+    order: 10;
+    gap: 8px;
+    width: 100%;
+    padding-top: 4px;
+    border-top: 1px solid var(--border);
   }
 
   .theme-dot {
-    width: 16px;
-    height: 16px;
+    width: 18px;
+    height: 18px;
+  }
+
+  .lang-dropdown {
+    order: 10;
+    margin-left: auto;
   }
 
   .lang-dropdown-menu {
     width: 160px;
+    right: 0;
   }
 
   .capture-card {
@@ -919,6 +936,7 @@ html, body {
 
   /* iOS safe area */
   .app {
+    padding-top: calc(16px + env(safe-area-inset-top));
     padding-bottom: calc(100px + env(safe-area-inset-bottom));
   }
 }
