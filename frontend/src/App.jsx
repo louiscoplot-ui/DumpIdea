@@ -306,7 +306,46 @@ export default function App() {
   const [items, setItems] = useState([]);
   const [filter, setFilter] = useState("all");
   const [error, setError] = useState(null);
-  const [language, setLanguage] = useState(() => localStorage.getItem("bd-lang") || "french");
+  const [language, setLanguage] = useState(() => {
+    const saved = localStorage.getItem("bd-lang");
+    if (saved) return saved;
+    // Auto-detect browser language on first visit
+    const nav = (navigator.language || navigator.userLanguage || "fr").toLowerCase();
+    const map = [
+      { prefix: "fr", code: "french" },
+      { prefix: "en", code: "english" },
+      { prefix: "es", code: "spanish" },
+      { prefix: "it", code: "italian" },
+      { prefix: "pt", code: "portuguese" },
+      { prefix: "zh", code: "chinese" },
+      { prefix: "ru", code: "russian" },
+      { prefix: "de", code: "german" },
+      { prefix: "nl", code: "dutch" },
+      { prefix: "ar", code: "arabic" },
+      { prefix: "ja", code: "japanese" },
+      { prefix: "ko", code: "korean" },
+      { prefix: "hi", code: "hindi" },
+      { prefix: "tr", code: "turkish" },
+      { prefix: "pl", code: "polish" },
+      { prefix: "uk", code: "ukrainian" },
+      { prefix: "sv", code: "swedish" },
+      { prefix: "no", code: "norwegian" },
+      { prefix: "da", code: "danish" },
+      { prefix: "fi", code: "finnish" },
+      { prefix: "cs", code: "czech" },
+      { prefix: "hu", code: "hungarian" },
+      { prefix: "ro", code: "romanian" },
+      { prefix: "el", code: "greek" },
+      { prefix: "he", code: "hebrew" },
+      { prefix: "fa", code: "persian" },
+      { prefix: "id", code: "indonesian" },
+      { prefix: "ms", code: "malay" },
+      { prefix: "th", code: "thai" },
+      { prefix: "vi", code: "vietnamese" },
+    ];
+    const match = map.find(m => nav.startsWith(m.prefix));
+    return match ? match.code : "english";
+  });
   const [theme, setTheme] = useState(() => localStorage.getItem("bd-theme") || "dark");
   const [listening, setListening] = useState(false);
   const recognitionRef = useRef(null);
