@@ -1223,6 +1223,7 @@ html, body {
   align-items: center;
   justify-content: space-between;
   margin-bottom: 4px;
+  position: relative;
 }
 .cal-month-label {
   font-size: 15px;
@@ -1752,3 +1753,151 @@ html, body {
   transition: opacity 0.15s;
 }
 .faq-dismiss-btn:hover { opacity: 0.88; }
+
+/* ─── Settings button ─── */
+
+.btn-settings {
+  background: transparent;
+  border: none;
+  font-size: 17px;
+  cursor: pointer;
+  padding: 2px 4px;
+  opacity: 0.6;
+  transition: opacity 0.15s;
+  flex-shrink: 0;
+}
+.btn-settings:hover { opacity: 1; }
+
+/* ─── Settings modal body ─── */
+
+.settings-row {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.settings-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.settings-time-input {
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 7px 10px;
+  font-size: 16px;
+  outline: none;
+  width: 140px;
+  cursor: pointer;
+}
+.settings-time-input:focus { border-color: var(--border-focus); }
+
+.settings-freq-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.freq-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 7px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  transition: all 0.12s;
+}
+.freq-option input[type="radio"] { accent-color: var(--border-focus); }
+.freq-option.active {
+  background: var(--surface2);
+  border-color: var(--border-focus);
+  color: var(--text);
+  font-weight: 600;
+}
+.freq-option:hover:not(.active) { background: var(--surface2); }
+
+/* ─── Calendar month picker ─── */
+
+.cal-month-label {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+  text-transform: capitalize;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 6px;
+  transition: background 0.1s;
+}
+.cal-month-label:hover { background: var(--surface2); }
+
+.cal-month-picker {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.25);
+  z-index: 200;
+  padding: 10px;
+  width: 240px;
+}
+
+.cal-picker-years {
+  display: flex;
+  gap: 6px;
+  justify-content: center;
+  margin-bottom: 10px;
+}
+.cal-picker-year {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 4px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  color: var(--text-muted);
+  transition: all 0.12s;
+}
+.cal-picker-year.active, .cal-picker-year:hover {
+  background: var(--border-focus);
+  color: white;
+  border-color: transparent;
+}
+
+.cal-picker-months {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 4px;
+}
+.cal-picker-month {
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 4px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  color: var(--text-muted);
+  text-align: center;
+  text-transform: capitalize;
+  transition: all 0.12s;
+}
+.cal-picker-month:hover { background: var(--surface2); color: var(--text); }
+.cal-picker-month.active {
+  background: var(--border-focus);
+  color: white;
+  border-color: transparent;
+  font-weight: 700;
+}

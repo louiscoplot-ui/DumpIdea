@@ -18,13 +18,13 @@ const FILTERS = [
 ];
 
 const T = {
-  french:     { placeholder: "Balance tes idées ici… l'IA les réécrit et classe automatiquement. (Entrée pour analyser)", analyse: "Analyser", analysing: "Analyse…", confirm: "✓ Confirmer", discard: "Ignorer", preview: "Aperçu", chars: "car.", all: "Tout", todo: "To-do", ideas: "Idées", calls: "Calls", notes: "Notes", done: "Fait", empty: "Aucune entrée.", emptySub: "Tape quelque chose ci-dessus et analyse !", inCat: " dans cette catégorie", entry: "entrée", entries: "entrées", calendar: "Calendrier", categories: "Catégories", noDateItems: "Aucun élément avec une date.", addCat: "Ajouter une catégorie…", personal: "Personnel", newGroup: "+ Nouveau groupe", joinCode: "🔑 Rejoindre avec un code", createGroup: "Créer", join: "Rejoindre", codePlaceholder: "Code (ex: XK7P2M)…", groupName: "Nom du groupe…", deleteGroupConfirm: "Supprimer ce groupe ? Les items resteront accessibles en perso.", dueDate: "📅 Échéance (optionnel)", tagLabel: "🏷 Catégorie", tagPlaceholder: "Ajouter… (Entrée)", noCats: "Aucune catégorie personnalisée.", list: "Liste", help: "Aide", today: "Aujourd'hui", overdue: "En retard" },
-  english:    { placeholder: "Dump your thoughts here… the AI will rewrite and organise them for you. (Enter to analyse)", analyse: "Analyse", analysing: "Analysing…", confirm: "✓ Confirm", discard: "Dismiss", preview: "Preview", chars: "chars", all: "All", todo: "To-do", ideas: "Ideas", calls: "Calls", notes: "Notes", done: "Done", empty: "No entries.", emptySub: "Type something above and analyse!", inCat: " in this category", entry: "entry", entries: "entries", calendar: "Calendar", categories: "Categories", noDateItems: "No items with a date.", addCat: "Add a category…", personal: "Personal", newGroup: "+ New group", joinCode: "🔑 Join with a code", createGroup: "Create", join: "Join", codePlaceholder: "Code (e.g. XK7P2M)…", groupName: "Group name…", deleteGroupConfirm: "Delete this group? Items will remain in personal space.", dueDate: "📅 Due date (optional)", tagLabel: "🏷 Category", tagPlaceholder: "Add… (Enter)", noCats: "No custom categories.", list: "List", help: "Help", today: "Today", overdue: "Overdue" },
-  spanish:    { placeholder: "Suelta tus ideas aquí… la IA las reescribirá y organizará. (Enter para analizar)", analyse: "Analizar", analysing: "Analizando…", confirm: "✓ Confirmar", discard: "Ignorar", preview: "Vista previa", chars: "car.", all: "Todo", todo: "Tarea", ideas: "Ideas", calls: "Llamadas", notes: "Notas", done: "Hecho", empty: "Sin entradas.", emptySub: "¡Escribe algo arriba y analiza!", inCat: " en esta categoría", entry: "entrada", entries: "entradas", calendar: "Calendario", categories: "Categorías", noDateItems: "Sin elementos con fecha.", addCat: "Añadir categoría…", personal: "Personal", newGroup: "+ Nuevo grupo", joinCode: "🔑 Unirse con código", createGroup: "Crear", join: "Unirse", codePlaceholder: "Código (ej: XK7P2M)…", groupName: "Nombre del grupo…", deleteGroupConfirm: "¿Eliminar este grupo?", dueDate: "📅 Fecha límite (opcional)", tagLabel: "🏷 Categoría", tagPlaceholder: "Añadir… (Enter)", noCats: "Sin categorías personalizadas.", list: "Lista", help: "Ayuda", today: "Hoy", overdue: "Retrasado" },
-  italian:    { placeholder: "Svuota la testa qui… l'IA riscriverà e organizzerà tutto. (Invio per analizzare)", analyse: "Analizza", analysing: "Analisi…", confirm: "✓ Conferma", discard: "Ignora", preview: "Anteprima", chars: "car.", all: "Tutto", todo: "To-do", ideas: "Idee", calls: "Chiamate", notes: "Note", done: "Fatto", empty: "Nessuna voce.", emptySub: "Scrivi qualcosa sopra e analizza!", inCat: " in questa categoria", entry: "voce", entries: "voci", calendar: "Calendario", categories: "Categorie", noDateItems: "Nessun elemento con data.", addCat: "Aggiungi categoria…", personal: "Personale", newGroup: "+ Nuovo gruppo", joinCode: "🔑 Unisciti con codice", createGroup: "Crea", join: "Unisciti", codePlaceholder: "Codice (es: XK7P2M)…", groupName: "Nome del gruppo…", deleteGroupConfirm: "Eliminare questo gruppo?", dueDate: "📅 Scadenza (opzionale)", tagLabel: "🏷 Categoria", tagPlaceholder: "Aggiungi… (Invio)", noCats: "Nessuna categoria personalizzata.", list: "Lista", help: "Aiuto", today: "Oggi", overdue: "In ritardo" },
-  portuguese: { placeholder: "Despeje suas ideias aqui… a IA vai reescrever e organizar tudo. (Enter para analisar)", analyse: "Analisar", analysing: "Analisando…", confirm: "✓ Confirmar", discard: "Ignorar", preview: "Pré-visualização", chars: "car.", all: "Tudo", todo: "Tarefa", ideas: "Ideias", calls: "Chamadas", notes: "Notas", done: "Feito", empty: "Sem entradas.", emptySub: "Digite algo acima e analise!", inCat: " nesta categoria", entry: "entrada", entries: "entradas", calendar: "Calendário", categories: "Categorias", noDateItems: "Sem itens com data.", addCat: "Adicionar categoria…", personal: "Pessoal", newGroup: "+ Novo grupo", joinCode: "🔑 Entrar com código", createGroup: "Criar", join: "Entrar", codePlaceholder: "Código (ex: XK7P2M)…", groupName: "Nome do grupo…", deleteGroupConfirm: "Excluir este grupo?", dueDate: "📅 Prazo (opcional)", tagLabel: "🏷 Categoria", tagPlaceholder: "Adicionar… (Enter)", noCats: "Sem categorias personalizadas.", list: "Lista", help: "Ajuda", today: "Hoje", overdue: "Atrasado" },
-  chinese:    { placeholder: "在此清空思绪… AI将自动改写并分类。（按Enter分析）", analyse: "分析", analysing: "分析中…", confirm: "✓ 确认", discard: "忽略", preview: "预览", chars: "字", all: "全部", todo: "待办", ideas: "想法", calls: "通话", notes: "笔记", done: "完成", empty: "暂无内容。", emptySub: "在上方输入内容并分析！", inCat: "（此类别）", entry: "条", entries: "条", calendar: "日历", categories: "分类", noDateItems: "没有带日期的项目。", addCat: "添加分类…", personal: "个人", newGroup: "+ 新建群组", joinCode: "🔑 用代码加入", createGroup: "创建", join: "加入", codePlaceholder: "代码（如：XK7P2M）…", groupName: "群组名称…", deleteGroupConfirm: "删除此群组？", dueDate: "📅 截止日期（可选）", tagLabel: "🏷 分类", tagPlaceholder: "添加…（回车）", noCats: "暂无自定义分类。", list: "列表", help: "帮助", today: "今天", overdue: "已逾期" },
-  russian:    { placeholder: "Выгрузи мысли сюда… ИИ перепишет и упорядочит всё автоматически. (Enter для анализа)", analyse: "Анализ", analysing: "Анализ…", confirm: "✓ Сохранить", discard: "Отмена", preview: "Просмотр", chars: "симв.", all: "Все", todo: "Задача", ideas: "Идеи", calls: "Звонки", notes: "Заметки", done: "Готово", empty: "Нет записей.", emptySub: "Введите что-нибудь выше и нажмите анализ!", inCat: " в этой категории", entry: "запись", entries: "записей", calendar: "Календарь", categories: "Категории", noDateItems: "Нет элементов с датой.", addCat: "Добавить категорию…", personal: "Личное", newGroup: "+ Новая группа", joinCode: "🔑 Войти по коду", createGroup: "Создать", join: "Войти", codePlaceholder: "Код (напр.: XK7P2M)…", groupName: "Название группы…", deleteGroupConfirm: "Удалить эту группу?", dueDate: "📅 Срок (необязательно)", tagLabel: "🏷 Категория", tagPlaceholder: "Добавить… (Enter)", noCats: "Нет пользовательских категорий.", list: "Список", help: "Помощь", today: "Сегодня", overdue: "Просрочено" },
+  french:     { placeholder: "Balance tes idées ici… l'IA les réécrit et classe automatiquement. (Entrée pour analyser)", analyse: "Analyser", analysing: "Analyse…", confirm: "✓ Confirmer", discard: "Ignorer", preview: "Aperçu", chars: "car.", all: "Tout", todo: "To-do", ideas: "Idées", calls: "Calls", notes: "Notes", done: "Fait", empty: "Aucune entrée.", emptySub: "Tape quelque chose ci-dessus et analyse !", inCat: " dans cette catégorie", entry: "entrée", entries: "entrées", calendar: "Calendrier", categories: "Catégories", noDateItems: "Aucun élément avec une date.", addCat: "Ajouter une catégorie…", personal: "Personnel", newGroup: "+ Nouveau groupe", joinCode: "🔑 Rejoindre avec un code", createGroup: "Créer", join: "Rejoindre", codePlaceholder: "Code (ex: XK7P2M)…", groupName: "Nom du groupe…", deleteGroupConfirm: "Supprimer ce groupe ? Les items resteront accessibles en perso.", dueDate: "📅 Échéance (optionnel)", tagLabel: "🏷 Catégorie", tagPlaceholder: "Ajouter… (Entrée)", noCats: "Aucune catégorie personnalisée.", list: "Liste", help: "Aide", today: "Aujourd'hui", overdue: "En retard", settings: "Paramètres", reminderTime: "Heure du rappel", reminderFreq: "Fréquence", freqDaily: "Quotidien", freqWeekdays: "Jours ouvrés (Lun–Ven)", freqWeekly: "Hebdomadaire (Lundi)", freqNever: "Jamais", save: "Enregistrer", saved: "✓ Enregistré", faqTitle: "FAQ & Aide", faqDismiss: "Compris, fermer ✓", faqInstallIphone: "iPhone — Safari → 📤 Partager → Ajouter à l'écran d'accueil", faqInstallAndroid: "Android — Chrome → ⋮ → Ajouter à l'écran d'accueil ou Installer l'application" },
+  english:    { placeholder: "Dump your thoughts here… the AI will rewrite and organise them for you. (Enter to analyse)", analyse: "Analyse", analysing: "Analysing…", confirm: "✓ Confirm", discard: "Dismiss", preview: "Preview", chars: "chars", all: "All", todo: "To-do", ideas: "Ideas", calls: "Calls", notes: "Notes", done: "Done", empty: "No entries.", emptySub: "Type something above and analyse!", inCat: " in this category", entry: "entry", entries: "entries", calendar: "Calendar", categories: "Categories", noDateItems: "No items with a date.", addCat: "Add a category…", personal: "Personal", newGroup: "+ New group", joinCode: "🔑 Join with a code", createGroup: "Create", join: "Join", codePlaceholder: "Code (e.g. XK7P2M)…", groupName: "Group name…", deleteGroupConfirm: "Delete this group? Items will remain in personal space.", dueDate: "📅 Due date (optional)", tagLabel: "🏷 Category", tagPlaceholder: "Add… (Enter)", noCats: "No custom categories.", list: "List", help: "Help", today: "Today", overdue: "Overdue", settings: "Settings", reminderTime: "Reminder time", reminderFreq: "Frequency", freqDaily: "Daily", freqWeekdays: "Weekdays (Mon–Fri)", freqWeekly: "Weekly (Monday)", freqNever: "Never", save: "Save", saved: "✓ Saved", faqTitle: "FAQ & Help", faqDismiss: "Got it, close ✓", faqInstallIphone: "iPhone — Safari → 📤 Share → Add to Home Screen", faqInstallAndroid: "Android — Chrome → ⋮ → Add to Home screen or Install app" },
+  spanish:    { placeholder: "Suelta tus ideas aquí… la IA las reescribirá y organizará. (Enter para analizar)", analyse: "Analizar", analysing: "Analizando…", confirm: "✓ Confirmar", discard: "Ignorar", preview: "Vista previa", chars: "car.", all: "Todo", todo: "Tarea", ideas: "Ideas", calls: "Llamadas", notes: "Notas", done: "Hecho", empty: "Sin entradas.", emptySub: "¡Escribe algo arriba y analiza!", inCat: " en esta categoría", entry: "entrada", entries: "entradas", calendar: "Calendario", categories: "Categorías", noDateItems: "Sin elementos con fecha.", addCat: "Añadir categoría…", personal: "Personal", newGroup: "+ Nuevo grupo", joinCode: "🔑 Unirse con código", createGroup: "Crear", join: "Unirse", codePlaceholder: "Código (ej: XK7P2M)…", groupName: "Nombre del grupo…", deleteGroupConfirm: "¿Eliminar este grupo?", dueDate: "📅 Fecha límite (opcional)", tagLabel: "🏷 Categoría", tagPlaceholder: "Añadir… (Enter)", noCats: "Sin categorías personalizadas.", list: "Lista", help: "Ayuda", today: "Hoy", overdue: "Retrasado", settings: "Ajustes", reminderTime: "Hora del recordatorio", reminderFreq: "Frecuencia", freqDaily: "Diario", freqWeekdays: "Días laborables (Lun–Vie)", freqWeekly: "Semanal (Lunes)", freqNever: "Nunca", save: "Guardar", saved: "✓ Guardado", faqTitle: "FAQ & Ayuda", faqDismiss: "Entendido, cerrar ✓", faqInstallIphone: "iPhone — Safari → 📤 Compartir → Añadir a pantalla de inicio", faqInstallAndroid: "Android — Chrome → ⋮ → Añadir a pantalla de inicio o Instalar app" },
+  italian:    { placeholder: "Svuota la testa qui… l'IA riscriverà e organizzerà tutto. (Invio per analizzare)", analyse: "Analizza", analysing: "Analisi…", confirm: "✓ Conferma", discard: "Ignora", preview: "Anteprima", chars: "car.", all: "Tutto", todo: "To-do", ideas: "Idee", calls: "Chiamate", notes: "Note", done: "Fatto", empty: "Nessuna voce.", emptySub: "Scrivi qualcosa sopra e analizza!", inCat: " in questa categoria", entry: "voce", entries: "voci", calendar: "Calendario", categories: "Categorie", noDateItems: "Nessun elemento con data.", addCat: "Aggiungi categoria…", personal: "Personale", newGroup: "+ Nuovo gruppo", joinCode: "🔑 Unisciti con codice", createGroup: "Crea", join: "Unisciti", codePlaceholder: "Codice (es: XK7P2M)…", groupName: "Nome del gruppo…", deleteGroupConfirm: "Eliminare questo gruppo?", dueDate: "📅 Scadenza (opzionale)", tagLabel: "🏷 Categoria", tagPlaceholder: "Aggiungi… (Invio)", noCats: "Nessuna categoria personalizzata.", list: "Lista", help: "Aiuto", today: "Oggi", overdue: "In ritardo", settings: "Impostazioni", reminderTime: "Orario promemoria", reminderFreq: "Frequenza", freqDaily: "Ogni giorno", freqWeekdays: "Giorni feriali (Lun–Ven)", freqWeekly: "Settimanale (Lunedì)", freqNever: "Mai", save: "Salva", saved: "✓ Salvato", faqTitle: "FAQ & Aiuto", faqDismiss: "Capito, chiudi ✓", faqInstallIphone: "iPhone — Safari → 📤 Condividi → Aggiungi alla schermata Home", faqInstallAndroid: "Android — Chrome → ⋮ → Aggiungi alla schermata Home o Installa app" },
+  portuguese: { placeholder: "Despeje suas ideias aqui… a IA vai reescrever e organizar tudo. (Enter para analisar)", analyse: "Analisar", analysing: "Analisando…", confirm: "✓ Confirmar", discard: "Ignorar", preview: "Pré-visualização", chars: "car.", all: "Tudo", todo: "Tarefa", ideas: "Ideias", calls: "Chamadas", notes: "Notas", done: "Feito", empty: "Sem entradas.", emptySub: "Digite algo acima e analise!", inCat: " nesta categoria", entry: "entrada", entries: "entradas", calendar: "Calendário", categories: "Categorias", noDateItems: "Sem itens com data.", addCat: "Adicionar categoria…", personal: "Pessoal", newGroup: "+ Novo grupo", joinCode: "🔑 Entrar com código", createGroup: "Criar", join: "Entrar", codePlaceholder: "Código (ex: XK7P2M)…", groupName: "Nome do grupo…", deleteGroupConfirm: "Excluir este grupo?", dueDate: "📅 Prazo (opcional)", tagLabel: "🏷 Categoria", tagPlaceholder: "Adicionar… (Enter)", noCats: "Sem categorias personalizadas.", list: "Lista", help: "Ajuda", today: "Hoje", overdue: "Atrasado", settings: "Configurações", reminderTime: "Hora do lembrete", reminderFreq: "Frequência", freqDaily: "Diário", freqWeekdays: "Dias úteis (Seg–Sex)", freqWeekly: "Semanal (Segunda)", freqNever: "Nunca", save: "Salvar", saved: "✓ Salvo", faqTitle: "FAQ & Ajuda", faqDismiss: "Entendido, fechar ✓", faqInstallIphone: "iPhone — Safari → 📤 Compartilhar → Adicionar à tela de início", faqInstallAndroid: "Android — Chrome → ⋮ → Adicionar à tela inicial ou Instalar app" },
+  chinese:    { placeholder: "在此清空思绪… AI将自动改写并分类。（按Enter分析）", analyse: "分析", analysing: "分析中…", confirm: "✓ 确认", discard: "忽略", preview: "预览", chars: "字", all: "全部", todo: "待办", ideas: "想法", calls: "通话", notes: "笔记", done: "完成", empty: "暂无内容。", emptySub: "在上方输入内容并分析！", inCat: "（此类别）", entry: "条", entries: "条", calendar: "日历", categories: "分类", noDateItems: "没有带日期的项目。", addCat: "添加分类…", personal: "个人", newGroup: "+ 新建群组", joinCode: "🔑 用代码加入", createGroup: "创建", join: "加入", codePlaceholder: "代码（如：XK7P2M）…", groupName: "群组名称…", deleteGroupConfirm: "删除此群组？", dueDate: "📅 截止日期（可选）", tagLabel: "🏷 分类", tagPlaceholder: "添加…（回车）", noCats: "暂无自定义分类。", list: "列表", help: "帮助", today: "今天", overdue: "已逾期", settings: "设置", reminderTime: "提醒时间", reminderFreq: "频率", freqDaily: "每天", freqWeekdays: "工作日（周一至五）", freqWeekly: "每周（周一）", freqNever: "从不", save: "保存", saved: "✓ 已保存", faqTitle: "常见问题", faqDismiss: "明白了，关闭 ✓", faqInstallIphone: "iPhone — Safari → 📤 分享 → 添加到主屏幕", faqInstallAndroid: "Android — Chrome → ⋮ → 添加到主屏幕或安装应用" },
+  russian:    { placeholder: "Выгрузи мысли сюда… ИИ перепишет и упорядочит всё автоматически. (Enter для анализа)", analyse: "Анализ", analysing: "Анализ…", confirm: "✓ Сохранить", discard: "Отмена", preview: "Просмотр", chars: "симв.", all: "Все", todo: "Задача", ideas: "Идеи", calls: "Звонки", notes: "Заметки", done: "Готово", empty: "Нет записей.", emptySub: "Введите что-нибудь выше и нажмите анализ!", inCat: " в этой категории", entry: "запись", entries: "записей", calendar: "Календарь", categories: "Категории", noDateItems: "Нет элементов с датой.", addCat: "Добавить категорию…", personal: "Личное", newGroup: "+ Новая группа", joinCode: "🔑 Войти по коду", createGroup: "Создать", join: "Войти", codePlaceholder: "Код (напр.: XK7P2M)…", groupName: "Название группы…", deleteGroupConfirm: "Удалить эту группу?", dueDate: "📅 Срок (необязательно)", tagLabel: "🏷 Категория", tagPlaceholder: "Добавить… (Enter)", noCats: "Нет пользовательских категорий.", list: "Список", help: "Помощь", today: "Сегодня", overdue: "Просрочено", settings: "Настройки", reminderTime: "Время напоминания", reminderFreq: "Частота", freqDaily: "Ежедневно", freqWeekdays: "Будни (Пн–Пт)", freqWeekly: "Еженедельно (Понедельник)", freqNever: "Никогда", save: "Сохранить", saved: "✓ Сохранено", faqTitle: "FAQ & Помощь", faqDismiss: "Понятно, закрыть ✓", faqInstallIphone: "iPhone — Safari → 📤 Поделиться → На экран «Домой»", faqInstallAndroid: "Android — Chrome → ⋮ → Добавить на главный экран или Установить приложение" },
 };
 
 const LANGUAGES = [
@@ -231,40 +231,82 @@ function ItemCard({ item, onToggle, onToggleSubtask, onDelete, onToggleUrgent })
   );
 }
 
-const FAQ_ITEMS = [
-  {
-    q: "Comment télécharger Drople sur iPhone ?",
-    a: "Ouvre dropleapp.com dans Safari → appuie sur le bouton Partager (📤) → «Ajouter à l'écran d'accueil» → Ajouter. Drople s'installe comme une vraie appli.",
-  },
-  {
-    q: "How to install on Android?",
-    a: "Open dropleapp.com in Chrome → tap the ⋮ menu → 'Add to Home screen' or 'Install app'. Drople installs like a native app.",
-  },
-  {
-    q: "Comment ça marche ?",
-    a: "Tu tapes (ou dictes) n'importe quoi — idée brouillon, tâche, note de réunion. L'IA analyse, reformule, et classe automatiquement en To-do, Idée, Call ou Note.",
-  },
-  {
-    q: "À quoi servent les catégories ?",
-    a: "Ce sont tes étiquettes personnelles (ex: «Perso», «Travail», «Santé»). Une fois créées, l'IA les assigne automatiquement à chaque nouvelle note selon le contenu.",
-  },
-  {
-    q: "Comment inviter quelqu'un dans un groupe ?",
-    a: "Crée un groupe via le menu en haut → clique 🔗 à côté du groupe → partage le code à 6 lettres ou le lien. Ton collègue entre le code dans «Rejoindre avec un code».",
-  },
-  {
-    q: "Mes données sont-elles sécurisées ?",
-    a: "Oui. Chaque compte est lié à ton Google ID. Seul toi (et les membres de tes groupes partagés) pouvez voir tes notes.",
-  },
-  {
-    q: "Comment fonctionnent les rappels ?",
-    a: "Active les notifications au premier lancement. Drople t'envoie un rappel chaque matin à 9h pour tes tâches du jour, en retard, ou restées sans suite depuis 5 jours.",
-  },
-  {
-    q: "Puis-je changer la langue ?",
-    a: "Oui, clique sur le sélecteur de langue en haut à droite. L'IA reformulera ensuite tes notes dans la langue choisie.",
-  },
-];
+const FAQ_DATA = {
+  french: [
+    { q: "Comment télécharger Drople sur iPhone ?", a: "Ouvre dropleapp.com dans Safari → appuie sur le bouton Partager (📤) → «Ajouter à l'écran d'accueil» → Ajouter. Drople s'installe comme une vraie appli." },
+    { q: "Comment l'installer sur Android ?", a: "Ouvre dropleapp.com dans Chrome → appuie sur le menu ⋮ → «Ajouter à l'écran d'accueil» ou «Installer l'application»." },
+    { q: "Comment ça marche ?", a: "Tu tapes (ou dictes) n'importe quoi — idée brouillon, tâche, note de réunion. L'IA analyse, reformule, et classe automatiquement en To-do, Idée, Call ou Note." },
+    { q: "À quoi servent les catégories ?", a: "Ce sont tes étiquettes personnelles (ex: «Perso», «Travail», «Santé»). Une fois créées, l'IA les assigne automatiquement à chaque nouvelle note selon le contenu." },
+    { q: "Comment inviter quelqu'un dans un groupe ?", a: "Crée un groupe via le menu en haut → clique 🔗 → partage le code à 6 lettres ou le lien. Ton collègue entre le code dans «Rejoindre avec un code»." },
+    { q: "Mes données sont-elles sécurisées ?", a: "Oui. Chaque compte est lié à ton Google ID. Seul toi (et les membres de tes groupes partagés) pouvez voir tes notes." },
+    { q: "Comment fonctionnent les rappels ?", a: "Active les notifications → règle l'heure et la fréquence dans ⚙️ Paramètres. Drople t'envoie un rappel pour les tâches du jour, en retard, ou sans suite depuis 5 jours." },
+    { q: "Puis-je changer la langue ?", a: "Oui, clique sur le sélecteur de langue en haut à droite. L'IA reformulera tes notes dans la langue choisie." },
+  ],
+  english: [
+    { q: "How to install Drople on iPhone?", a: "Open dropleapp.com in Safari → tap the Share button (📤) → 'Add to Home Screen' → Add. Drople installs like a real app." },
+    { q: "How to install on Android?", a: "Open dropleapp.com in Chrome → tap the ⋮ menu → 'Add to Home screen' or 'Install app'. Drople installs like a native app." },
+    { q: "How does it work?", a: "Type (or dictate) anything — rough idea, task, meeting note. The AI analyses, rewrites, and automatically sorts it into To-do, Idea, Call or Note." },
+    { q: "What are categories for?", a: "They are your personal labels (e.g. 'Personal', 'Work', 'Health'). Once created, the AI automatically assigns them to new notes based on content." },
+    { q: "How do I invite someone to a group?", a: "Create a group in the top menu → click 🔗 → share the 6-letter code or link. Your contact enters the code under 'Join with a code'." },
+    { q: "Is my data secure?", a: "Yes. Every account is linked to your Google ID. Only you (and members of your shared groups) can see your notes." },
+    { q: "How do reminders work?", a: "Enable notifications → set the time and frequency in ⚙️ Settings. Drople sends a reminder for tasks due today, overdue ones, or todos untouched for 5 days." },
+    { q: "Can I change the language?", a: "Yes, click the language selector in the top right. The AI will then rewrite your notes in the chosen language." },
+  ],
+  spanish: [
+    { q: "¿Cómo instalar Drople en iPhone?", a: "Abre dropleapp.com en Safari → toca Compartir (📤) → 'Añadir a pantalla de inicio' → Añadir." },
+    { q: "¿Cómo instalarlo en Android?", a: "Abre dropleapp.com en Chrome → toca ⋮ → 'Añadir a pantalla de inicio' o 'Instalar aplicación'." },
+    { q: "¿Cómo funciona?", a: "Escribe o dicta cualquier cosa. La IA analiza, reescribe y clasifica en Tarea, Idea, Llamada o Nota automáticamente." },
+    { q: "¿Para qué sirven las categorías?", a: "Son tus etiquetas personales. Una vez creadas, la IA las asigna automáticamente según el contenido." },
+    { q: "¿Cómo invitar a alguien a un grupo?", a: "Crea un grupo → toca 🔗 → comparte el código de 6 letras. Tu contacto lo introduce en 'Unirse con código'." },
+    { q: "¿Mis datos están seguros?", a: "Sí. Cada cuenta está vinculada a tu Google ID. Solo tú (y los miembros de tus grupos) pueden ver tus notas." },
+    { q: "¿Cómo funcionan los recordatorios?", a: "Activa las notificaciones → ajusta la hora y frecuencia en ⚙️ Ajustes. Drople te avisará de tareas pendientes." },
+    { q: "¿Puedo cambiar el idioma?", a: "Sí, haz clic en el selector de idioma arriba a la derecha." },
+  ],
+  italian: [
+    { q: "Come installare Drople su iPhone?", a: "Apri dropleapp.com in Safari → tocca Condividi (📤) → 'Aggiungi alla schermata Home' → Aggiungi." },
+    { q: "Come installarlo su Android?", a: "Apri dropleapp.com in Chrome → tocca ⋮ → 'Aggiungi alla schermata Home' o 'Installa app'." },
+    { q: "Come funziona?", a: "Scrivi o ditta qualsiasi cosa. L'IA analizza, riscrive e classifica in To-do, Idea, Chiamata o Nota automaticamente." },
+    { q: "A cosa servono le categorie?", a: "Sono le tue etichette personali. Una volta create, l'IA le assegna automaticamente ai nuovi appunti." },
+    { q: "Come invitare qualcuno in un gruppo?", a: "Crea un gruppo → tocca 🔗 → condividi il codice a 6 lettere. Il tuo contatto lo inserisce in 'Unisciti con codice'." },
+    { q: "I miei dati sono al sicuro?", a: "Sì. Ogni account è collegato al tuo Google ID." },
+    { q: "Come funzionano i promemoria?", a: "Attiva le notifiche → imposta orario e frequenza in ⚙️ Impostazioni." },
+    { q: "Posso cambiare la lingua?", a: "Sì, clicca sul selettore di lingua in alto a destra." },
+  ],
+  portuguese: [
+    { q: "Como instalar Drople no iPhone?", a: "Abra dropleapp.com no Safari → toque em Compartilhar (📤) → 'Adicionar à tela de início' → Adicionar." },
+    { q: "Como instalar no Android?", a: "Abra dropleapp.com no Chrome → toque em ⋮ → 'Adicionar à tela inicial' ou 'Instalar app'." },
+    { q: "Como funciona?", a: "Digite ou dite qualquer coisa. A IA analisa, reescreve e classifica em Tarefa, Ideia, Chamada ou Nota automaticamente." },
+    { q: "Para que servem as categorias?", a: "São suas etiquetas pessoais. Uma vez criadas, a IA as atribui automaticamente às novas notas." },
+    { q: "Como convidar alguém para um grupo?", a: "Crie um grupo → toque em 🔗 → compartilhe o código de 6 letras." },
+    { q: "Meus dados estão seguros?", a: "Sim. Cada conta está vinculada ao seu Google ID." },
+    { q: "Como funcionam os lembretes?", a: "Ative as notificações → ajuste o horário e frequência em ⚙️ Configurações." },
+    { q: "Posso mudar o idioma?", a: "Sim, clique no seletor de idioma no canto superior direito." },
+  ],
+  chinese: [
+    { q: "如何在iPhone上安装Drople？", a: "在Safari中打开dropleapp.com → 点击分享(📤) → 添加到主屏幕。" },
+    { q: "如何在Android上安装？", a: "在Chrome中打开dropleapp.com → 点击⋮ → 添加到主屏幕或安装应用。" },
+    { q: "怎么使用？", a: "输入或口述任何想法，AI会自动分析、改写并分类为待办、想法、通话记录或笔记。" },
+    { q: "分类有什么用？", a: "这是你的个人标签。创建后，AI会根据内容自动为新笔记分配合适的标签。" },
+    { q: "如何邀请他人加入群组？", a: "创建群组 → 点击🔗 → 分享6位代码。对方在「用代码加入」中输入即可。" },
+    { q: "数据安全吗？", a: "是的，每个账户与您的Google ID绑定，只有您和群组成员才能看到您的笔记。" },
+    { q: "提醒如何工作？", a: "开启通知后，在⚙️设置中调整提醒时间和频率。" },
+    { q: "可以更改语言吗？", a: "可以，点击右上角的语言选择器即可切换。" },
+  ],
+  russian: [
+    { q: "Как установить Drople на iPhone?", a: "Откройте dropleapp.com в Safari → нажмите Поделиться (📤) → «На экран «Домой»» → Добавить." },
+    { q: "Как установить на Android?", a: "Откройте dropleapp.com в Chrome → нажмите ⋮ → «Добавить на главный экран» или «Установить приложение»." },
+    { q: "Как это работает?", a: "Введите или надиктуйте что угодно. ИИ проанализирует, перепишет и автоматически разложит по категориям." },
+    { q: "Для чего нужны категории?", a: "Это ваши личные метки. После создания ИИ автоматически присваивает их новым заметкам." },
+    { q: "Как пригласить кого-то в группу?", a: "Создайте группу → нажмите 🔗 → поделитесь 6-буквенным кодом." },
+    { q: "Мои данные в безопасности?", a: "Да. Каждый аккаунт привязан к вашему Google ID." },
+    { q: "Как работают напоминания?", a: "Включите уведомления → настройте время и частоту в ⚙️ Настройки." },
+    { q: "Можно ли сменить язык?", a: "Да, нажмите на выбор языка в правом верхнем углу." },
+  ],
+};
+
+function getFaqItems(lang) {
+  return FAQ_DATA[lang] || FAQ_DATA.english;
+}
 
 function FaqItem({ q, a }) {
   const [open, setOpen] = useState(false);
@@ -375,10 +417,40 @@ export default function App() {
   const [calMonth, setCalMonth] = useState(() => { const d = new Date(); return { year: d.getFullYear(), month: d.getMonth() }; });
   const [calSelectedDay, setCalSelectedDay] = useState(null);
   const [showFAQ, setShowFAQ] = useState(() => !localStorage.getItem("drople-faq-seen"));
+  const [showSettings, setShowSettings] = useState(false);
+  const [reminderTime, setReminderTime] = useState("09:00");
+  const [reminderFreq, setReminderFreq] = useState("daily");
+  const [settingsSaved, setSettingsSaved] = useState(false);
+  const [calMonthPickerOpen, setCalMonthPickerOpen] = useState(false);
   const wsRef = useRef(null);
   const pendingJoinToken = useRef(
     new URLSearchParams(window.location.search).get("join")
   );
+
+  const fetchSettings = useCallback(async (accessToken) => {
+    const tk = accessToken || token;
+    if (!tk) return;
+    try {
+      const res = await fetch("/api/settings", { headers: { Authorization: `Bearer ${tk}` } });
+      if (res.ok) {
+        const d = await res.json();
+        setReminderTime(d.reminder_time || "09:00");
+        setReminderFreq(d.reminder_frequency || "daily");
+      }
+    } catch {}
+  }, [token]);
+
+  const saveSettings = async () => {
+    try {
+      await fetch("/api/settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ reminder_time: reminderTime, reminder_frequency: reminderFreq }),
+      });
+      setSettingsSaved(true);
+      setTimeout(() => setSettingsSaved(false), 2500);
+    } catch {}
+  };
 
   const fetchWorkspaces = useCallback(async (accessToken) => {
     const t = accessToken || token;
@@ -511,6 +583,7 @@ export default function App() {
       localStorage.setItem("bd-user", JSON.stringify(profile));
       subscribePush(t);
       fetchWorkspaces(t);
+      fetchSettings(t);
       // Handle pending join token from URL
       if (pendingJoinToken.current) {
         try {
@@ -577,7 +650,7 @@ export default function App() {
   }, [token, workspaceId]);
 
   useEffect(() => {
-    if (token) { fetchItems(); fetchWorkspaces(); }
+    if (token) { fetchItems(); fetchWorkspaces(); fetchSettings(); }
   }, [fetchItems, token]);
 
   const handleKeyDown = (e) => {
@@ -873,7 +946,8 @@ export default function App() {
           </div>
         )}
 
-        <button className="btn-faq" onClick={() => setShowFAQ(true)} title={t.help || "Aide / FAQ"}>?</button>
+        <button className="btn-faq" onClick={() => setShowFAQ(true)} title={t.help}>?</button>
+        <button className="btn-settings" onClick={() => setShowSettings(true)} title={t.settings}>⚙️</button>
 
         <button className="btn-logout" onClick={logout} title="Se déconnecter">
           {user?.picture
@@ -1119,36 +1193,75 @@ export default function App() {
         </div>
       )}
 
+      {/* Settings Modal */}
+      {showSettings && (
+        <div className="modal-overlay" onClick={() => setShowSettings(false)}>
+          <div className="modal-card" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <span>⚙️ {t.settings}</span>
+              <button className="modal-close" onClick={() => setShowSettings(false)}>×</button>
+            </div>
+            <div className="modal-body">
+              <div className="settings-row">
+                <label className="settings-label">🔔 {t.reminderTime}</label>
+                <input
+                  type="time"
+                  className="settings-time-input"
+                  value={reminderTime}
+                  onChange={e => setReminderTime(e.target.value)}
+                />
+              </div>
+              <div className="settings-row">
+                <label className="settings-label">📅 {t.reminderFreq}</label>
+                <div className="settings-freq-group">
+                  {[
+                    { val: "daily",    label: t.freqDaily },
+                    { val: "weekdays", label: t.freqWeekdays },
+                    { val: "weekly",   label: t.freqWeekly },
+                    { val: "never",    label: t.freqNever },
+                  ].map(({ val, label }) => (
+                    <label key={val} className={`freq-option${reminderFreq === val ? " active" : ""}`}>
+                      <input type="radio" name="freq" value={val} checked={reminderFreq === val}
+                        onChange={() => setReminderFreq(val)} />
+                      {label}
+                    </label>
+                  ))}
+                </div>
+              </div>
+              <button className="cat-add-btn" style={{ width: "100%", marginTop: 8 }} onClick={saveSettings}>
+                {settingsSaved ? t.saved : t.save}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* FAQ Modal */}
       {showFAQ && (
         <div className="modal-overlay" onClick={() => { setShowFAQ(false); localStorage.setItem("drople-faq-seen", "1"); }}>
           <div className="modal-card faq-card" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
-              <span>❓ FAQ &amp; Aide</span>
+              <span>❓ {t.faqTitle}</span>
               <button className="modal-close" onClick={() => { setShowFAQ(false); localStorage.setItem("drople-faq-seen", "1"); }}>×</button>
             </div>
             <div className="faq-install-banner">
               <div className="faq-install-item">
                 <span className="faq-install-icon">🍎</span>
-                <div>
-                  <strong>iPhone</strong> — Safari → <span className="faq-key">📤 Partager</span> → <span className="faq-key">Ajouter à l'écran d'accueil</span>
-                </div>
+                <div>{t.faqInstallIphone}</div>
               </div>
               <div className="faq-install-item">
                 <span className="faq-install-icon">🤖</span>
-                <div>
-                  <strong>Android</strong> — Chrome → <span className="faq-key">⋮</span> → <span className="faq-key">Ajouter à l'écran d'accueil</span> ou <span className="faq-key">Installer l'application</span>
-                </div>
+                <div>{t.faqInstallAndroid}</div>
               </div>
             </div>
             <div className="faq-list">
-              {FAQ_ITEMS.map((item, i) => (
+              {getFaqItems(language).map((item, i) => (
                 <FaqItem key={i} q={item.q} a={item.a} />
               ))}
             </div>
             <div className="faq-footer">
               <button className="faq-dismiss-btn" onClick={() => { setShowFAQ(false); localStorage.setItem("drople-faq-seen", "1"); }}>
-                Compris, fermer ✓
+                {t.faqDismiss}
               </button>
             </div>
           </div>
@@ -1181,12 +1294,45 @@ export default function App() {
                 setCalMonth({ year: d.getFullYear(), month: d.getMonth() });
                 setCalSelectedDay(null);
               }}>‹</button>
-              <span className="cal-month-label">{monthName}</span>
+              <button className="cal-month-label" onClick={() => setCalMonthPickerOpen(o => !o)}>
+                {monthName} ▾
+              </button>
               <button className="cal-nav-btn" onClick={() => {
                 const d = new Date(year, month + 1, 1);
                 setCalMonth({ year: d.getFullYear(), month: d.getMonth() });
                 setCalSelectedDay(null);
               }}>›</button>
+              {calMonthPickerOpen && (() => {
+                const thisYear = new Date().getFullYear();
+                const years = [thisYear - 1, thisYear, thisYear + 1];
+                const months = Array.from({ length: 12 }, (_, i) =>
+                  new Date(2000, i, 1).toLocaleDateString("fr-FR", { month: "short" })
+                );
+                return (
+                  <div className="cal-month-picker" onClick={e => e.stopPropagation()}>
+                    <div className="cal-picker-years">
+                      {years.map(y => (
+                        <button key={y} className={`cal-picker-year${y === year ? " active" : ""}`}
+                          onClick={() => { setCalMonth(m => ({ ...m, year: y })); }}>
+                          {y}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="cal-picker-months">
+                      {months.map((m, i) => (
+                        <button key={i} className={`cal-picker-month${i === month ? " active" : ""}`}
+                          onClick={() => {
+                            setCalMonth({ year, month: i });
+                            setCalSelectedDay(null);
+                            setCalMonthPickerOpen(false);
+                          }}>
+                          {m}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
             <div className="cal-grid">
               {dayLabels.map(d => <div key={d} className="cal-day-header">{d}</div>)}

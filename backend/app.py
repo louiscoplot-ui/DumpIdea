@@ -90,6 +90,15 @@ def init_db():
     """)
 
     cur.execute("""
+        CREATE TABLE IF NOT EXISTS user_settings (
+            user_id TEXT PRIMARY KEY,
+            reminder_time TEXT DEFAULT '09:00',
+            reminder_frequency TEXT DEFAULT 'daily',
+            last_reminded_at TEXT DEFAULT NULL
+        )
+    """)
+
+    cur.execute("""
         CREATE TABLE IF NOT EXISTS workspace_members (
             id SERIAL PRIMARY KEY,
             workspace_id TEXT NOT NULL,
@@ -200,39 +209,71 @@ def send_push_to_user(user_id, title, body):
 
 
 def check_reminders():
-    """Daily cron: due today/tomorrow + overdue + stale todos."""
+    """Per-minute check: send reminders to users whose reminder_time matches now."""
     try:
+        now = datetime.now()
+        current_hhmm = now.strftime("%H:%M")
+        today = date.today().isoformat()
+        dow = now.weekday()  # 0=Mon, 6=Sun
+
         conn = get_db()
         cur = conn.cursor()
-        today = date.today().isoformat()
+
+        # Get all users whose reminder_time matches current minute and haven't been reminded today
+        cur.execute("""
+            SELECT s.user_id, s.reminder_frequency
+            FROM user_settings s
+            WHERE s.reminder_time = %s
+              AND s.reminder_frequency != 'never'
+              AND (s.last_reminded_at IS NULL OR s.last_reminded_at < %s)
+        """, (current_hhmm, today))
+        users_to_remind = cur.fetchall()
+
         tomorrow = (date.today() + timedelta(days=1)).isoformat()
         stale_cutoff = (date.today() - timedelta(days=5)).isoformat()
 
-        # Due today or tomorrow
-        cur.execute(
-            "SELECT * FROM items WHERE completed = 0 AND due_date IN (%s, %s)",
-            (today, tomorrow),
-        )
-        for row in cur.fetchall():
-            label = "aujourd'hui" if row["due_date"] == today else "demain"
-            send_push_to_user(row["user_id"], "⏰ Rappel Drople", f"{row['title']} — échéance {label}")
+        for row in users_to_remind:
+            uid = row["user_id"]
+            freq = row["reminder_frequency"]
 
-        # Overdue (past due date, not done)
-        cur.execute(
-            "SELECT * FROM items WHERE completed = 0 AND due_date IS NOT NULL AND due_date < %s",
-            (today,),
-        )
-        for row in cur.fetchall():
-            send_push_to_user(row["user_id"], "🔴 En retard — Drople", f"As-tu fait : {row['title']} ?")
+            # Check frequency: daily=always, weekdays=Mon-Fri, weekly=Monday only
+            if freq == "weekdays" and dow >= 5:
+                continue
+            if freq == "weekly" and dow != 0:
+                continue
 
-        # Stale todos (no due date, older than 5 days, not done)
-        cur.execute(
-            "SELECT * FROM items WHERE completed = 0 AND type = 'todo' AND due_date IS NULL AND created_at < %s",
-            (stale_cutoff,),
-        )
-        for row in cur.fetchall():
-            send_push_to_user(row["user_id"], "💭 Drople te rappelle", f"Tu n'as pas encore fait : {row['title']}")
+            # Due today or tomorrow
+            cur.execute(
+                "SELECT * FROM items WHERE user_id = %s AND completed = 0 AND due_date IN (%s, %s)",
+                (uid, today, tomorrow),
+            )
+            for item in cur.fetchall():
+                label = "aujourd'hui" if item["due_date"] == today else "demain"
+                send_push_to_user(uid, "⏰ Rappel Drople", f"{item['title']} — échéance {label}")
 
+            # Overdue
+            cur.execute(
+                "SELECT * FROM items WHERE user_id = %s AND completed = 0 AND due_date IS NOT NULL AND due_date < %s",
+                (uid, today),
+            )
+            for item in cur.fetchall():
+                send_push_to_user(uid, "🔴 En retard — Drople", f"As-tu fait : {item['title']} ?")
+
+            # Stale todos
+            cur.execute(
+                "SELECT * FROM items WHERE user_id = %s AND completed = 0 AND type = 'todo' AND due_date IS NULL AND created_at < %s",
+                (uid, stale_cutoff),
+            )
+            for item in cur.fetchall():
+                send_push_to_user(uid, "💭 Drople te rappelle", f"Tu n'as pas encore fait : {item['title']}")
+
+            # Mark as reminded today
+            cur.execute(
+                "UPDATE user_settings SET last_reminded_at = %s WHERE user_id = %s",
+                (today, uid),
+            )
+
+        conn.commit()
         cur.close()
         conn.close()
     except Exception as e:
@@ -240,7 +281,7 @@ def check_reminders():
 
 
 scheduler = BackgroundScheduler()
-scheduler.add_job(check_reminders, "cron", hour=9, minute=0)
+scheduler.add_job(check_reminders, "cron", minute="*")
 scheduler.start()
 
 
@@ -284,6 +325,50 @@ def push_subscribe():
         VALUES (%s, %s, %s, %s, %s)
         ON CONFLICT (endpoint) DO UPDATE SET user_id = EXCLUDED.user_id
     """, (user_id, data["endpoint"], data["keys"]["p256dh"], data["keys"]["auth"], datetime.now().isoformat()))
+    conn.commit()
+    cur.close()
+    conn.close()
+    return jsonify({"success": True})
+
+
+# ─── User settings (reminders) ────────────────────────────────────────────────
+
+@app.route("/api/settings", methods=["GET"])
+def get_settings():
+    user_id = get_user_id()
+    if not user_id:
+        return jsonify({"error": "Unauthorized"}), 401
+    conn = get_db()
+    cur = conn.cursor()
+    cur.execute("SELECT * FROM user_settings WHERE user_id = %s", (user_id,))
+    row = cur.fetchone()
+    cur.close()
+    conn.close()
+    if row:
+        return jsonify({"reminder_time": row["reminder_time"], "reminder_frequency": row["reminder_frequency"]})
+    return jsonify({"reminder_time": "09:00", "reminder_frequency": "daily"})
+
+
+@app.route("/api/settings", methods=["PUT"])
+def update_settings():
+    user_id = get_user_id()
+    if not user_id:
+        return jsonify({"error": "Unauthorized"}), 401
+    data = request.json
+    reminder_time = data.get("reminder_time", "09:00")
+    reminder_frequency = data.get("reminder_frequency", "daily")
+    if reminder_frequency not in ("daily", "weekdays", "weekly", "never"):
+        return jsonify({"error": "Invalid frequency"}), 400
+    conn = get_db()
+    cur = conn.cursor()
+    cur.execute("""
+        INSERT INTO user_settings (user_id, reminder_time, reminder_frequency)
+        VALUES (%s, %s, %s)
+        ON CONFLICT (user_id) DO UPDATE
+        SET reminder_time = EXCLUDED.reminder_time,
+            reminder_frequency = EXCLUDED.reminder_frequency,
+            last_reminded_at = NULL
+    """, (user_id, reminder_time, reminder_frequency))
     conn.commit()
     cur.close()
     conn.close()
