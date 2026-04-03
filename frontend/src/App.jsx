@@ -173,10 +173,11 @@ function ItemCard({ item, onToggle, onToggleSubtask, onDelete }) {
 }
 
 const THEMES = [
-  { id: "dark",   label: "Dark",   color: "#30363d" },
-  { id: "cream",  label: "Cream",  color: "#c8773a" },
-  { id: "forest", label: "Forest", color: "#4ade80" },
-  { id: "dusk",   label: "Dusk",   color: "#a78bfa" },
+  { id: "dark",    label: "Dark",    color: "#30363d" },
+  { id: "cream",   label: "Cream",   color: "#c8773a" },
+  { id: "sage",    label: "Sage",    color: "#3a7d52" },
+  { id: "ocean",   label: "Ocean",   color: "#1a6fa4" },
+  { id: "fiesta",  label: "Fiesta",  color: "#ff2d78" },
 ];
 
 export default function App() {

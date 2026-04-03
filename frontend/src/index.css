@@ -48,46 +48,71 @@
   --radius-sm: 6px;
 }
 
-/* ─── Theme: Forest ─── */
-[data-theme="forest"] {
-  --bg: #0c1a0e;
-  --surface: #122016;
-  --surface2: #1a2d1e;
-  --border: #2a4a2e;
-  --border-focus: #4ade80;
-  --text: #d4edd8;
-  --text-muted: #7aab80;
-  --text-dim: #3d6b44;
-  --todo-color: #4ade80;
-  --todo-bg: rgba(74,222,128,0.1);
-  --idea-color: #86efac;
-  --idea-bg: rgba(134,239,172,0.1);
-  --call-color: #34d399;
-  --call-bg: rgba(52,211,153,0.1);
-  --note-color: #fde68a;
-  --note-bg: rgba(253,230,138,0.1);
+/* ─── Theme: Sage (light green — botanical) ─── */
+/* Palette: deep forest #1e4d2b + sage #3a7d52 + warm ivory #f3f7f1 */
+[data-theme="sage"] {
+  --bg: #f3f7f1;
+  --surface: #ffffff;
+  --surface2: #e6efe3;
+  --border: #c2d9ba;
+  --border-focus: #3a7d52;
+  --text: #1a2e20;
+  --text-muted: #5a7a62;
+  --text-dim: #9ab89e;
+  --todo-color: #1e6b3a;
+  --todo-bg: rgba(30,107,58,0.09);
+  --idea-color: #6b7c2e;
+  --idea-bg: rgba(107,124,46,0.09);
+  --call-color: #0e8a6a;
+  --call-bg: rgba(14,138,106,0.09);
+  --note-color: #a05c1a;
+  --note-bg: rgba(160,92,26,0.09);
   --radius: 10px;
   --radius-sm: 6px;
 }
 
-/* ─── Theme: Dusk ─── */
-[data-theme="dusk"] {
-  --bg: #0f0d1a;
-  --surface: #171428;
-  --surface2: #1e1a30;
-  --border: #342e52;
-  --border-focus: #a78bfa;
-  --text: #ede9ff;
-  --text-muted: #8b84b8;
-  --text-dim: #4a4470;
-  --todo-color: #818cf8;
-  --todo-bg: rgba(129,140,248,0.12);
-  --idea-color: #c084fc;
-  --idea-bg: rgba(192,132,252,0.12);
-  --call-color: #34d399;
-  --call-bg: rgba(52,211,153,0.12);
-  --note-color: #fb923c;
-  --note-bg: rgba(251,146,60,0.12);
+/* ─── Theme: Ocean (light blue — clean & open) ─── */
+/* Palette: deep navy #0c2a42 + ocean blue #1a6fa4 + soft sky #eaf1fb */
+[data-theme="ocean"] {
+  --bg: #eaf1fb;
+  --surface: #ffffff;
+  --surface2: #d8e9f7;
+  --border: #b4d0ec;
+  --border-focus: #1a6fa4;
+  --text: #0c2a42;
+  --text-muted: #4a7a9b;
+  --text-dim: #8ab4cc;
+  --todo-color: #1a6fa4;
+  --todo-bg: rgba(26,111,164,0.09);
+  --idea-color: #6b44c8;
+  --idea-bg: rgba(107,68,200,0.09);
+  --call-color: #0e8a87;
+  --call-bg: rgba(14,138,135,0.09);
+  --note-color: #c87a1a;
+  --note-bg: rgba(200,122,26,0.09);
+  --radius: 10px;
+  --radius-sm: 6px;
+}
+
+/* ─── Theme: Fiesta (very colorful — dark neon) ─── */
+/* Palette: near-black + hot pink #ff2d78 + electric cyan + lime + gold */
+[data-theme="fiesta"] {
+  --bg: #0a0812;
+  --surface: #130f1e;
+  --surface2: #1c1730;
+  --border: #2e2548;
+  --border-focus: #ff2d78;
+  --text: #f5f0ff;
+  --text-muted: #9b8fc0;
+  --text-dim: #4a4068;
+  --todo-color: #00d4ff;
+  --todo-bg: rgba(0,212,255,0.1);
+  --idea-color: #ff2d78;
+  --idea-bg: rgba(255,45,120,0.1);
+  --call-color: #a8ff3e;
+  --call-bg: rgba(168,255,62,0.1);
+  --note-color: #ffcb00;
+  --note-bg: rgba(255,203,0,0.1);
   --radius: 10px;
   --radius-sm: 6px;
 }
