@@ -147,8 +147,40 @@ header h1 {
   padding: 0 12px 12px;
 }
 
-.add-form input {
+.autocomplete-wrapper {
   flex: 1;
+  position: relative;
+}
+
+.suggestions-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-top: none;
+  border-radius: 0 0 6px 6px;
+  max-height: 200px;
+  overflow-y: auto;
+  z-index: 100;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+}
+
+.suggestion-item {
+  padding: 8px 10px;
+  font-size: 13px;
+  cursor: pointer;
+  color: var(--text);
+}
+
+.suggestion-item:hover {
+  background: var(--primary);
+  color: white;
+}
+
+.add-form input {
+  width: 100%;
   padding: 6px 10px;
   border: 1px solid var(--border);
   border-radius: 6px;

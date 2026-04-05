@@ -22,7 +22,22 @@ scrape_jobs = {}  # suburb_id -> {status, progress, started_at}
 
 @app.route('/api/ping', methods=['GET'])
 def ping():
-    return jsonify({'status': 'ok', 'app': 'reiwa-scraper'})
+    return jsonify({'status': 'ok', 'app': 'market-scraper'})
+
+
+# --- SUBURB AUTOCOMPLETE ---
+
+@app.route('/api/suburbs/search', methods=['GET'])
+def search_suburbs():
+    """Autocomplete for WA suburb names."""
+    from wa_suburbs import WA_SUBURBS
+    q = request.args.get('q', '').strip().lower()
+    if not q:
+        return jsonify([])
+    matches = [s for s in WA_SUBURBS if s.lower().startswith(q)]
+    if not matches:
+        matches = [s for s in WA_SUBURBS if q in s.lower()]
+    return jsonify(matches[:15])
 
 
 # --- SUBURB MANAGEMENT ---

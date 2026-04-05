@@ -8,6 +8,8 @@ function App() {
   const [selectedSuburb, setSelectedSuburb] = useState(null)
   const [selectedStatus, setSelectedStatus] = useState(null)
   const [newSuburb, setNewSuburb] = useState('')
+  const [suggestions, setSuggestions] = useState([])
+  const [showSuggestions, setShowSuggestions] = useState(false)
   const [scrapeStatus, setScrapeStatus] = useState({})
   const [logs, setLogs] = useState([])
   const [view, setView] = useState('listings') // 'listings' or 'logs'
@@ -73,10 +75,50 @@ function App() {
   useEffect(() => { fetchListings() }, [selectedSuburb, selectedStatus])
   useEffect(() => { if (view === 'logs') fetchLogs() }, [view, selectedSuburb])
 
+  // --- Autocomplete ---
+  const searchTimeoutRef = useRef(null)
+  const suggestionsRef = useRef(null)
+
+  const handleSuburbInput = (val) => {
+    setNewSuburb(val)
+    if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current)
+    if (val.trim().length < 2) {
+      setSuggestions([])
+      setShowSuggestions(false)
+      return
+    }
+    searchTimeoutRef.current = setTimeout(async () => {
+      const res = await fetch(`${API}/suburbs/search?q=${encodeURIComponent(val.trim())}`)
+      if (res.ok) {
+        const data = await res.json()
+        setSuggestions(data)
+        setShowSuggestions(data.length > 0)
+      }
+    }, 150)
+  }
+
+  const selectSuggestion = (name) => {
+    setNewSuburb(name)
+    setSuggestions([])
+    setShowSuggestions(false)
+  }
+
+  // Close suggestions when clicking outside
+  useEffect(() => {
+    const handler = (e) => {
+      if (suggestionsRef.current && !suggestionsRef.current.contains(e.target)) {
+        setShowSuggestions(false)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
+
   // --- Actions ---
   const addSuburb = async (e) => {
     e.preventDefault()
     if (!newSuburb.trim()) return
+    setShowSuggestions(false)
     const res = await fetch(`${API}/suburbs`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -84,6 +126,7 @@ function App() {
     })
     if (res.ok) {
       setNewSuburb('')
+      setSuggestions([])
       fetchSuburbs()
     } else {
       const data = await res.json()
@@ -143,7 +186,7 @@ function App() {
   return (
     <div className="app">
       <header>
-        <h1>REIWA Market Tracker</h1>
+        <h1>MarketScraper</h1>
         <div className="header-actions">
           <button
             className="btn btn-primary"
@@ -165,13 +208,30 @@ function App() {
         {/* Sidebar */}
         <aside className="sidebar">
           <h2>Suburbs</h2>
-          <form onSubmit={addSuburb} className="add-form">
-            <input
-              type="text"
-              value={newSuburb}
-              onChange={e => setNewSuburb(e.target.value)}
-              placeholder="Add suburb (e.g. Cottesloe)"
-            />
+          <form onSubmit={addSuburb} className="add-form" ref={suggestionsRef}>
+            <div className="autocomplete-wrapper">
+              <input
+                type="text"
+                value={newSuburb}
+                onChange={e => handleSuburbInput(e.target.value)}
+                onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
+                placeholder="Type suburb name..."
+                autoComplete="off"
+              />
+              {showSuggestions && (
+                <div className="suggestions-dropdown">
+                  {suggestions.map(s => (
+                    <div
+                      key={s}
+                      className="suggestion-item"
+                      onClick={() => selectSuggestion(s)}
+                    >
+                      {s}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
             <button type="submit" className="btn btn-small">+</button>
           </form>
 
