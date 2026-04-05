@@ -390,7 +390,8 @@ export default function App() {
   });
   const [theme, setTheme] = useState(() => localStorage.getItem("bd-theme") || "dark");
   const [listening, setListening] = useState(false);
-  const recognitionRef = useRef(null);
+  const [transcribing, setTranscribing] = useState(false);
+  const audioRecRef = useRef(null);
   const [langOpen, setLangOpen] = useState(false);
   const [langSearch, setLangSearch] = useState("");
   const langRef = useRef(null);
@@ -715,44 +716,75 @@ export default function App() {
     }
   };
 
-  const toggleVoice = () => {
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SpeechRecognition) {
-      setError("La reconnaissance vocale n'est pas supportée par ce navigateur.");
-      return;
+  const encodeWAV = (samples, sampleRate) => {
+    const buf = new ArrayBuffer(44 + samples.length * 2);
+    const view = new DataView(buf);
+    const ws = (off, str) => { for (let i = 0; i < str.length; i++) view.setUint8(off + i, str.charCodeAt(i)); };
+    ws(0, "RIFF"); view.setUint32(4, 36 + samples.length * 2, true);
+    ws(8, "WAVE"); ws(12, "fmt ");
+    view.setUint32(16, 16, true); view.setUint16(20, 1, true);
+    view.setUint16(22, 1, true); view.setUint32(24, sampleRate, true);
+    view.setUint32(28, sampleRate * 2, true); view.setUint16(32, 2, true);
+    view.setUint16(34, 16, true); ws(36, "data");
+    view.setUint32(40, samples.length * 2, true);
+    let off = 44;
+    for (let i = 0; i < samples.length; i++, off += 2) {
+      const s = Math.max(-1, Math.min(1, samples[i]));
+      view.setInt16(off, s < 0 ? s * 0x8000 : s * 0x7fff, true);
     }
+    return new Blob([buf], { type: "audio/wav" });
+  };
 
+  const toggleVoice = async () => {
     if (listening) {
-      recognitionRef.current?.stop();
+      // Stop recording
+      const { stream, processor, source, audioCtx, chunks } = audioRecRef.current;
+      source.disconnect(processor);
+      processor.disconnect();
+      stream.getTracks().forEach(t => t.stop());
+      try { await audioCtx.close(); } catch {}
       setListening(false);
+
+      if (!chunks.length) return;
+      const totalLen = chunks.reduce((s, c) => s + c.length, 0);
+      const combined = new Float32Array(totalLen);
+      let offset = 0;
+      for (const c of chunks) { combined.set(c, offset); offset += c.length; }
+      const wavBlob = encodeWAV(combined, audioCtx.sampleRate);
+
+      setTranscribing(true);
+      const fd = new FormData();
+      fd.append("audio", wavBlob, "rec.wav");
+      fd.append("language", language);
+      try {
+        const res = await fetch("/api/transcribe", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}` },
+          body: fd,
+        });
+        const data = await res.json();
+        if (data.text) setText(p => p ? p + " " + data.text : data.text);
+        else if (data.error) setError("Micro : " + data.error);
+      } catch { setError("Erreur transcription."); }
+      finally { setTranscribing(false); }
       return;
     }
 
-    const recognition = new SpeechRecognition();
-    recognition.lang = language === "french" ? "fr-FR"
-      : language === "english" ? "en-US"
-      : language === "spanish" ? "es-ES"
-      : language === "italian" ? "it-IT"
-      : language === "portuguese" ? "pt-PT"
-      : language === "chinese" ? "zh-CN"
-      : language === "russian" ? "ru-RU"
-      : "fr-FR";
-    recognition.continuous = true;
-    recognition.interimResults = false;
-
-    recognition.onresult = (e) => {
-      const transcript = Array.from(e.results)
-        .map((r) => r[0].transcript)
-        .join(" ");
-      setText((prev) => (prev ? prev + " " + transcript : transcript));
-    };
-
-    recognition.onerror = () => setListening(false);
-    recognition.onend = () => setListening(false);
-
-    recognitionRef.current = recognition;
-    recognition.start();
-    setListening(true);
+    // Start recording
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true } });
+      const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      const source = audioCtx.createMediaStreamSource(stream);
+      const processor = audioCtx.createScriptProcessor(4096, 1, 1);
+      const chunks = [];
+      processor.onaudioprocess = e => chunks.push(new Float32Array(e.inputBuffer.getChannelData(0)));
+      source.connect(processor);
+      processor.connect(audioCtx.destination);
+      audioRecRef.current = { stream, audioCtx, source, processor, chunks };
+      setListening(true);
+    } catch {
+      setError("Microphone inaccessible — vérifier les permissions.");
+    }
   };
 
   const analyse = async () => {
@@ -1109,11 +1141,12 @@ export default function App() {
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <span className="char-count">{text.length} {t.chars}</span>
             <button
-              className={`btn-mic${listening ? " active" : ""}`}
+              className={`btn-mic${listening ? " active" : ""}${transcribing ? " transcribing" : ""}`}
               onClick={toggleVoice}
-              title={listening ? "Stop" : "Dictate"}
+              disabled={transcribing}
+              title={transcribing ? "Transcription…" : listening ? "Stop" : "Dictate"}
             >
-              {listening ? "⏹" : "🎙"}
+              {transcribing ? "⌛" : listening ? "⏹" : "🎙"}
             </button>
           </div>
           <button

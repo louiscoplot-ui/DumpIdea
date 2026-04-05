@@ -685,6 +685,61 @@ def leave_workspace(wid):
     return jsonify({"success": True})
 
 
+# ─── Transcription ────────────────────────────────────────────────────────────
+
+@app.route("/api/transcribe", methods=["POST"])
+def transcribe_audio():
+    user_id = get_user_id()
+    if not user_id:
+        return jsonify({"error": "Unauthorized"}), 401
+
+    audio_file = request.files.get("audio")
+    language = request.form.get("language", "french")
+
+    if not audio_file:
+        return jsonify({"error": "No audio provided"}), 400
+
+    lang_map = {
+        "french": "fr-FR", "english": "en-US", "spanish": "es-ES",
+        "italian": "it-IT", "portuguese": "pt-BR", "chinese": "zh-CN",
+        "russian": "ru-RU", "german": "de-DE", "dutch": "nl-NL",
+        "arabic": "ar-SA", "japanese": "ja-JP", "korean": "ko-KR",
+        "hindi": "hi-IN", "turkish": "tr-TR", "polish": "pl-PL",
+        "vietnamese": "vi-VN", "ukrainian": "uk-UA", "swedish": "sv-SE",
+        "norwegian": "nb-NO", "bengali": "bn-IN",
+    }
+    lang_code = lang_map.get(language, "fr-FR")
+
+    import speech_recognition as sr
+    import tempfile, os
+
+    recognizer = sr.Recognizer()
+    recognizer.energy_threshold = 300
+    recognizer.pause_threshold = 0.8
+
+    tmp_path = None
+    try:
+        with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
+            audio_file.save(tmp.name)
+            tmp_path = tmp.name
+
+        with sr.AudioFile(tmp_path) as source:
+            audio_data = recognizer.record(source)
+
+        text = recognizer.recognize_google(audio_data, language=lang_code)
+        return jsonify({"text": text})
+    except sr.UnknownValueError:
+        return jsonify({"error": "Audio incompréhensible, réessaie"}), 400
+    except sr.RequestError as e:
+        return jsonify({"error": f"Service indisponible: {e}"}), 503
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    finally:
+        if tmp_path:
+            try: os.unlink(tmp_path)
+            except: pass
+
+
 # ─── Items ────────────────────────────────────────────────────────────────────
 
 @app.route("/api/process", methods=["POST"])
