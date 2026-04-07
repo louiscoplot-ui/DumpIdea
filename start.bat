@@ -14,7 +14,7 @@ cd /d "%~dp0"
 
 echo [1/2] Starting backend...
 cd backend
-start "MarketScraper Backend" cmd /k "pip install -r requirements.txt >nul 2>&1 && echo Backend running on http://localhost:5000 && python app.py"
+start "MarketScraper Backend" cmd /k "pip install --user -r requirements.txt >nul 2>&1 && echo Backend running on http://localhost:5000 && python app.py"
 
 echo [2/2] Starting frontend...
 cd ..\frontend
