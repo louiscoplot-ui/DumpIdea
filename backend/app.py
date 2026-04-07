@@ -74,13 +74,17 @@ def list_listings():
     suburb_id = request.args.get('suburb_id', type=int)
     suburb_ids_str = request.args.get('suburb_ids', '')
     status = request.args.get('status')
+    statuses_str = request.args.get('statuses', '')
     suburb_ids = None
     if suburb_ids_str:
         try:
             suburb_ids = [int(x) for x in suburb_ids_str.split(',') if x.strip()]
         except ValueError:
             pass
-    return jsonify(get_listings(suburb_id=suburb_id, suburb_ids=suburb_ids, status=status))
+    statuses = None
+    if statuses_str:
+        statuses = [s.strip() for s in statuses_str.split(',') if s.strip()]
+    return jsonify(get_listings(suburb_id=suburb_id, suburb_ids=suburb_ids, status=status, statuses=statuses))
 
 
 @app.route('/api/listings/summary', methods=['GET'])

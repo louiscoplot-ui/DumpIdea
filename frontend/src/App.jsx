@@ -5,18 +5,20 @@ const API = '/api'
 function App() {
   const [suburbs, setSuburbs] = useState([])
   const [listings, setListings] = useState([])
-  const [selectedSuburbs, setSelectedSuburbs] = useState(new Set()) // for viewing
-  const [checkedSuburbs, setCheckedSuburbs] = useState(new Set())   // for scraping
-  const [selectedStatus, setSelectedStatus] = useState(null)
+  const [selectedSuburbs, setSelectedSuburbs] = useState(new Set())
+  const [checkedSuburbs, setCheckedSuburbs] = useState(new Set())
+  const [selectedStatuses, setSelectedStatuses] = useState(new Set())
   const [newSuburb, setNewSuburb] = useState('')
   const [suggestions, setSuggestions] = useState([])
   const [showSuggestions, setShowSuggestions] = useState(false)
   const [scrapeStatus, setScrapeStatus] = useState({})
+  const [showScrapeModal, setShowScrapeModal] = useState(false)
   const [logs, setLogs] = useState([])
   const [view, setView] = useState('listings')
   const [sortField, setSortField] = useState('address')
   const [sortDir, setSortDir] = useState('asc')
   const pollRef = useRef(null)
+  const scrapeStartRef = useRef(null)
 
   // --- Data fetching ---
   const fetchSuburbs = useCallback(async () => {
@@ -24,26 +26,23 @@ function App() {
     if (res.ok) {
       const data = await res.json()
       setSuburbs(data)
-      // Auto-check all suburbs for scraping if none checked
       setCheckedSuburbs(prev => {
-        if (prev.size === 0 && data.length > 0) {
-          return new Set(data.map(s => s.id))
-        }
+        if (prev.size === 0 && data.length > 0) return new Set(data.map(s => s.id))
         return prev
       })
     }
   }, [])
 
   const fetchListings = useCallback(async () => {
-    // If specific suburbs selected for viewing, fetch for each
     const suburbFilter = selectedSuburbs.size > 0
       ? `suburb_ids=${Array.from(selectedSuburbs).join(',')}`
       : ''
     let url = `${API}/listings?${suburbFilter}`
-    if (selectedStatus) url += `&status=${selectedStatus}`
+    // Send all selected statuses
+    if (selectedStatuses.size > 0) url += `&statuses=${Array.from(selectedStatuses).join(',')}`
     const res = await fetch(url)
     if (res.ok) setListings(await res.json())
-  }, [selectedSuburbs, selectedStatus])
+  }, [selectedSuburbs, selectedStatuses])
 
   const fetchScrapeStatus = useCallback(async () => {
     const res = await fetch(`${API}/scrape/status`)
@@ -51,20 +50,23 @@ function App() {
       const data = await res.json()
       setScrapeStatus(data)
       const anyRunning = Object.values(data).some(j => j.status === 'running')
-      if (anyRunning && !pollRef.current) {
-        pollRef.current = setInterval(async () => {
-          const r = await fetch(`${API}/scrape/status`)
-          if (r.ok) {
-            const d = await r.json()
-            setScrapeStatus(d)
-            if (!Object.values(d).some(j => j.status === 'running')) {
-              clearInterval(pollRef.current)
-              pollRef.current = null
-              fetchSuburbs()
-              fetchListings()
+      if (anyRunning) {
+        setShowScrapeModal(true)
+        if (!pollRef.current) {
+          pollRef.current = setInterval(async () => {
+            const r = await fetch(`${API}/scrape/status`)
+            if (r.ok) {
+              const d = await r.json()
+              setScrapeStatus(d)
+              if (!Object.values(d).some(j => j.status === 'running')) {
+                clearInterval(pollRef.current)
+                pollRef.current = null
+                fetchSuburbs()
+                fetchListings()
+              }
             }
-          }
-        }, 2000)
+          }, 2000)
+        }
       }
     }
   }, [fetchSuburbs, fetchListings])
@@ -80,7 +82,7 @@ function App() {
     return () => { if (pollRef.current) clearInterval(pollRef.current) }
   }, [])
 
-  useEffect(() => { fetchListings() }, [selectedSuburbs, selectedStatus])
+  useEffect(() => { fetchListings() }, [selectedSuburbs, selectedStatuses])
   useEffect(() => { if (view === 'logs') fetchLogs() }, [view])
 
   // --- Autocomplete ---
@@ -153,21 +155,35 @@ function App() {
   }
 
   const scrapeSuburb = async (id) => {
+    scrapeStartRef.current = Date.now()
     await fetch(`${API}/scrape/${id}`, { method: 'POST' })
+    setShowScrapeModal(true)
     fetchScrapeStatus()
   }
 
   const scrapeSelected = async () => {
     if (checkedSuburbs.size === 0) return
+    scrapeStartRef.current = Date.now()
     await fetch(`${API}/scrape/selected`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ suburb_ids: Array.from(checkedSuburbs) })
     })
+    setShowScrapeModal(true)
     fetchScrapeStatus()
   }
 
-  // Suburb selection toggles
+  // Multi-status toggle
+  const toggleStatus = (status) => {
+    setSelectedStatuses(prev => {
+      const n = new Set(prev)
+      if (status === null) return new Set() // "ALL" clears the filter
+      if (n.has(status)) n.delete(status)
+      else n.add(status)
+      return n
+    })
+  }
+
   const toggleViewSuburb = (id) => {
     setSelectedSuburbs(prev => {
       const n = new Set(prev)
@@ -186,13 +202,8 @@ function App() {
     })
   }
 
-  const selectAllCheck = () => {
-    setCheckedSuburbs(new Set(suburbs.map(s => s.id)))
-  }
-
-  const deselectAllCheck = () => {
-    setCheckedSuburbs(new Set())
-  }
+  const selectAllCheck = () => setCheckedSuburbs(new Set(suburbs.map(s => s.id)))
+  const deselectAllCheck = () => setCheckedSuburbs(new Set())
 
   // --- Sorting ---
   const toggleSort = (field) => {
@@ -211,7 +222,6 @@ function App() {
       : String(vb).localeCompare(String(va))
   })
 
-  // Filter listings by selected suburbs for viewing
   const filteredListings = selectedSuburbs.size > 0
     ? sortedListings.filter(l => selectedSuburbs.has(l.suburb_id))
     : sortedListings
@@ -223,6 +233,26 @@ function App() {
     under_offer: '#f59e0b',
     sold: '#3b82f6',
     withdrawn: '#ef4444',
+  }
+
+  // Scrape modal helpers
+  const scrapeJobs = Object.entries(scrapeStatus).map(([id, job]) => {
+    const suburb = suburbs.find(s => s.id === parseInt(id))
+    return { id, name: suburb?.name || `Suburb ${id}`, ...job }
+  }).filter(j => j.status === 'running' || j.status === 'completed' || j.status === 'error')
+
+  const completedCount = scrapeJobs.filter(j => j.status === 'completed').length
+  const totalJobs = scrapeJobs.length
+  const elapsed = scrapeStartRef.current ? Math.floor((Date.now() - scrapeStartRef.current) / 1000) : 0
+  const estimatedRemaining = completedCount > 0 && totalJobs > completedCount
+    ? Math.floor((elapsed / completedCount) * (totalJobs - completedCount))
+    : null
+
+  const formatTime = (secs) => {
+    if (secs < 60) return `${secs}s`
+    const m = Math.floor(secs / 60)
+    const s = secs % 60
+    return `${m}m ${s}s`
   }
 
   return (
@@ -237,6 +267,11 @@ function App() {
           >
             {isAnyScraping ? 'Scraping...' : `Scrape Selected (${checkedSuburbs.size})`}
           </button>
+          {isAnyScraping && (
+            <button className="btn btn-secondary" onClick={() => setShowScrapeModal(true)}>
+              View Progress
+            </button>
+          )}
           <button
             className={`btn btn-secondary ${view === 'logs' ? 'active' : ''}`}
             onClick={() => setView(v => v === 'logs' ? 'listings' : 'logs')}
@@ -245,6 +280,56 @@ function App() {
           </button>
         </div>
       </header>
+
+      {/* Scrape Progress Modal */}
+      {showScrapeModal && scrapeJobs.length > 0 && (
+        <div className="modal-overlay" onClick={(e) => { if (e.target === e.currentTarget && !isAnyScraping) setShowScrapeModal(false) }}>
+          <div className="modal">
+            <div className="modal-header">
+              <h2>Scraping Progress</h2>
+              {!isAnyScraping && (
+                <button className="btn btn-icon" onClick={() => setShowScrapeModal(false)}>×</button>
+              )}
+            </div>
+
+            {/* Progress bar */}
+            <div className="progress-bar-container">
+              <div
+                className="progress-bar-fill"
+                style={{ width: `${totalJobs > 0 ? (completedCount / totalJobs) * 100 : 0}%` }}
+              />
+            </div>
+            <div className="progress-stats">
+              <span>{completedCount}/{totalJobs} suburbs done</span>
+              <span>Elapsed: {formatTime(elapsed)}</span>
+              {estimatedRemaining !== null && isAnyScraping && (
+                <span>~{formatTime(estimatedRemaining)} remaining</span>
+              )}
+            </div>
+
+            {/* Job list */}
+            <div className="modal-jobs">
+              {scrapeJobs.map(job => (
+                <div key={job.id} className={`modal-job status-${job.status}`}>
+                  <span className="job-name">{job.name}</span>
+                  <span className={`job-status ${job.status}`}>
+                    {job.status === 'running' && '⏳ '}
+                    {job.status === 'completed' && '✓ '}
+                    {job.status === 'error' && '✗ '}
+                    {job.progress || job.status}
+                  </span>
+                </div>
+              ))}
+            </div>
+
+            {!isAnyScraping && (
+              <div className="modal-footer">
+                <button className="btn btn-primary" onClick={() => setShowScrapeModal(false)}>Close</button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       <div className="layout">
         <aside className="sidebar">
@@ -297,10 +382,7 @@ function App() {
               const isChecked = checkedSuburbs.has(s.id)
 
               return (
-                <div
-                  key={s.id}
-                  className={`suburb-item ${isViewing ? 'selected' : ''}`}
-                >
+                <div key={s.id} className={`suburb-item ${isViewing ? 'selected' : ''}`}>
                   <input
                     type="checkbox"
                     className="suburb-check"
@@ -321,19 +403,10 @@ function App() {
                     {job?.status === 'error' && <div className="scrape-error">{job.progress}</div>}
                   </div>
                   <div className="suburb-actions">
-                    <button
-                      className="btn btn-icon"
-                      onClick={() => scrapeSuburb(s.id)}
-                      disabled={isRunning}
-                      title="Scrape this suburb"
-                    >
+                    <button className="btn btn-icon" onClick={() => scrapeSuburb(s.id)} disabled={isRunning} title="Scrape this suburb">
                       {isRunning ? '...' : '↻'}
                     </button>
-                    <button
-                      className="btn btn-icon btn-danger"
-                      onClick={() => deleteSuburb(s.id, s.name)}
-                      title="Delete suburb"
-                    >
+                    <button className="btn btn-icon btn-danger" onClick={() => deleteSuburb(s.id, s.name)} title="Delete suburb">
                       ×
                     </button>
                   </div>
@@ -347,14 +420,20 @@ function App() {
           {view === 'listings' ? (
             <>
               <div className="filters">
-                {[null, 'active', 'under_offer', 'sold', 'withdrawn'].map(s => (
+                <button
+                  className={`filter-btn ${selectedStatuses.size === 0 ? 'active' : ''}`}
+                  onClick={() => toggleStatus(null)}
+                >
+                  ALL
+                </button>
+                {['active', 'under_offer', 'sold', 'withdrawn'].map(s => (
                   <button
-                    key={s || 'all'}
-                    className={`filter-btn ${selectedStatus === s ? 'active' : ''}`}
-                    onClick={() => setSelectedStatus(s)}
-                    style={s ? { borderColor: statusColors[s] } : {}}
+                    key={s}
+                    className={`filter-btn ${selectedStatuses.has(s) ? 'active' : ''}`}
+                    onClick={() => toggleStatus(s)}
+                    style={{ borderColor: statusColors[s] }}
                   >
-                    {s ? s.replace('_', ' ').toUpperCase() : 'ALL'}
+                    {s.replace('_', ' ').toUpperCase()}
                   </button>
                 ))}
                 <span className="listing-count">

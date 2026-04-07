@@ -113,7 +113,7 @@ def get_suburbs():
     return [dict(r) for r in rows]
 
 
-def get_listings(suburb_id=None, suburb_ids=None, status=None):
+def get_listings(suburb_id=None, suburb_ids=None, status=None, statuses=None):
     conn = get_db()
     query = "SELECT l.*, s.name as suburb_name FROM listings l JOIN suburbs s ON l.suburb_id = s.id WHERE 1=1"
     params = []
@@ -124,7 +124,11 @@ def get_listings(suburb_id=None, suburb_ids=None, status=None):
     elif suburb_id:
         query += " AND l.suburb_id = ?"
         params.append(suburb_id)
-    if status:
+    if statuses:
+        placeholders = ','.join('?' * len(statuses))
+        query += f" AND l.status IN ({placeholders})"
+        params.extend(statuses)
+    elif status:
         query += " AND l.status = ?"
         params.append(status)
     query += " ORDER BY l.last_seen DESC, l.address ASC"
