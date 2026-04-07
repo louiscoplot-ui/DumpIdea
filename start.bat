@@ -5,9 +5,8 @@ echo    MarketScraper - Starting...
 echo ========================================
 echo.
 
-REM Add Git to PATH if needed
 set PATH=%PATH%;C:\Users\LouisCoplot\AppData\Local\Programs\Git\bin
-set PATH=%PATH%;C:\Program Files\nodejs\
+set "PATH=%PATH%;C:\Users\LouisCoplot\OneDrive - BELLE PROPERTY\Documents\Desktop\REIWA App\node-v24.14.1-win-x64"
 
 REM Get the directory where this .bat file is located
 cd /d "%~dp0"
