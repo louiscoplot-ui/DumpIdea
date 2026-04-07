@@ -350,6 +350,35 @@ header h1 {
   border-color: var(--text-muted);
 }
 
+.filter-separator {
+  width: 1px;
+  height: 24px;
+  background: var(--border);
+  margin: 0 4px;
+}
+
+.filter-select {
+  padding: 6px 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 12px;
+  cursor: pointer;
+  outline: none;
+  max-width: 200px;
+  appearance: auto;
+}
+
+.filter-select:focus {
+  border-color: var(--primary);
+}
+
+.filter-select option {
+  background: var(--surface);
+  color: var(--text);
+}
+
 .listing-count {
   margin-left: auto;
   font-size: 13px;

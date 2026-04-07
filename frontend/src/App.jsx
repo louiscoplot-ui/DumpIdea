@@ -17,6 +17,8 @@ function App() {
   const [view, setView] = useState('listings')
   const [sortField, setSortField] = useState('address')
   const [sortDir, setSortDir] = useState('asc')
+  const [selectedAgent, setSelectedAgent] = useState('')
+  const [selectedAgency, setSelectedAgency] = useState('')
   const pollRef = useRef(null)
   const scrapeStartRef = useRef(null)
 
@@ -222,9 +224,16 @@ function App() {
       : String(vb).localeCompare(String(va))
   })
 
-  const filteredListings = selectedSuburbs.size > 0
-    ? sortedListings.filter(l => selectedSuburbs.has(l.suburb_id))
-    : sortedListings
+  const filteredListings = sortedListings.filter(l => {
+    if (selectedSuburbs.size > 0 && !selectedSuburbs.has(l.suburb_id)) return false
+    if (selectedAgent && l.agent !== selectedAgent) return false
+    if (selectedAgency && l.agency !== selectedAgency) return false
+    return true
+  })
+
+  // Unique agents and agencies from current listings (after suburb/status filter)
+  const uniqueAgents = [...new Set(listings.map(l => l.agent).filter(Boolean))].sort()
+  const uniqueAgencies = [...new Set(listings.map(l => l.agency).filter(Boolean))].sort()
 
   const isAnyScraping = Object.values(scrapeStatus).some(j => j.status === 'running')
 
@@ -436,9 +445,35 @@ function App() {
                     {s.replace('_', ' ').toUpperCase()}
                   </button>
                 ))}
+                <div className="filter-separator" />
+
+                <select
+                  className="filter-select"
+                  value={selectedAgency}
+                  onChange={e => setSelectedAgency(e.target.value)}
+                >
+                  <option value="">All Agencies</option>
+                  {uniqueAgencies.map(a => (
+                    <option key={a} value={a}>{a}</option>
+                  ))}
+                </select>
+
+                <select
+                  className="filter-select"
+                  value={selectedAgent}
+                  onChange={e => setSelectedAgent(e.target.value)}
+                >
+                  <option value="">All Agents</option>
+                  {uniqueAgents.map(a => (
+                    <option key={a} value={a}>{a}</option>
+                  ))}
+                </select>
+
                 <span className="listing-count">
                   {filteredListings.length} listing{filteredListings.length !== 1 ? 's' : ''}
                   {selectedSuburbs.size > 0 && ` (${selectedSuburbs.size} suburb${selectedSuburbs.size > 1 ? 's' : ''})`}
+                  {selectedAgency && ` · ${selectedAgency}`}
+                  {selectedAgent && ` · ${selectedAgent}`}
                 </span>
               </div>
 
