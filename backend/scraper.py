@@ -212,12 +212,13 @@ def _parse_card(card, suburb_name):
         "agency": agency,
         "agent": agent,
         "status": "active",
+        "listing_date": _extract_date(card),
     }
 
 
 def _fetch_detail(page, url):
     """Visit listing detail page for sizes and under_offer status."""
-    out = {"land_size": "", "internal_size": "", "price_text": "", "status": None}
+    out = {"land_size": "", "internal_size": "", "price_text": "", "status": None, "listing_date": ""}
     if not url:
         return out
 
@@ -290,6 +291,15 @@ def _fetch_detail(page, url):
         if m:
             out["price_text"] = f"${m.group(1)}"
 
+        # Listing date from detail page
+        for el in soup.find_all(["span", "div", "p", "time"]):
+            txt = el.get_text(strip=True)
+            if txt and len(txt) < 60:
+                d = _parse_date_text(txt)
+                if d:
+                    out["listing_date"] = d
+                    break
+
     except Exception as e:
         logger.warning(f"Detail error {url}: {e}")
 
@@ -312,6 +322,8 @@ def _fetch_details_batch(detail_pages, listings):
             rec['internal_size'] = detail['internal_size']
         if detail['price_text'] and not rec['price_text']:
             rec['price_text'] = detail['price_text']
+        if detail['listing_date'] and not rec.get('listing_date'):
+            rec['listing_date'] = detail['listing_date']
         if detail['status'] == 'under_offer':
             rec['status'] = 'under_offer'
 

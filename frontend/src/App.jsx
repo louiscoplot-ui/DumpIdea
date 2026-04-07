@@ -107,10 +107,28 @@ function App() {
     }, 150)
   }
 
-  const selectSuggestion = (name) => {
-    setNewSuburb(name)
+  const selectSuggestion = async (name) => {
     setSuggestions([])
     setShowSuggestions(false)
+    setNewSuburb('')
+    const res = await fetch(`${API}/suburbs`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: name.trim() })
+    })
+    if (res.ok) {
+      const data = await res.json()
+      setCheckedSuburbs(prev => new Set([...prev, data.id]))
+      fetchSuburbs()
+    } else {
+      const data = await res.json()
+      if (data.error === 'Suburb already exists') {
+        // Already added, just refresh
+        fetchSuburbs()
+      } else {
+        alert(data.error || 'Error adding suburb')
+      }
+    }
   }
 
   useEffect(() => {
@@ -503,6 +521,7 @@ function App() {
                         ['internal_size', 'Internal'],
                         ['agency', 'Agency'],
                         ['agent', 'Agent'],
+                        ['listing_date', 'Listed'],
                         ['status', 'Status'],
                         ['listing_type', 'Type'],
                         ['first_seen', 'First Seen'],
@@ -533,6 +552,7 @@ function App() {
                         <td>{l.internal_size || '-'}</td>
                         <td className="agency-cell">{l.agency || '-'}</td>
                         <td>{l.agent || '-'}</td>
+                        <td className="date-cell">{l.listing_date || '-'}</td>
                         <td>
                           <span className="status-badge" style={{ backgroundColor: statusColors[l.status] || '#666' }}>
                             {l.status?.replace('_', ' ')}
@@ -550,7 +570,7 @@ function App() {
                     ))}
                     {filteredListings.length === 0 && (
                       <tr>
-                        <td colSpan="15" className="empty">
+                        <td colSpan="16" className="empty">
                           {suburbs.length === 0
                             ? 'Add a suburb to get started'
                             : 'No listings yet. Click "Scrape" to fetch data.'}

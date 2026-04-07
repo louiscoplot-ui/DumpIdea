@@ -138,7 +138,7 @@ def export_listings():
     ws.title = "Listings"
 
     columns = ['Address', 'Suburb', 'Price', 'Bed', 'Bath', 'Car', 'Land', 'Internal',
-               'Agency', 'Agent', 'Status', 'Type', 'First Seen', 'Last Seen', 'Link']
+               'Agency', 'Agent', 'Listed', 'Status', 'Type', 'First Seen', 'Last Seen', 'Link']
 
     for col_idx, col_name in enumerate(columns, 1):
         cell = ws.cell(row=1, column=col_idx, value=col_name)
@@ -159,6 +159,7 @@ def export_listings():
             l.get('internal_size', ''),
             l.get('agency', ''),
             l.get('agent', ''),
+            l.get('listing_date', ''),
             (l.get('status', '') or '').replace('_', ' ').title(),
             l.get('listing_type', ''),
             l.get('first_seen', ''),
@@ -462,7 +463,7 @@ def _run_scrape_all(suburbs):
     """Run scrape for suburbs in parallel (up to 3 at a time)."""
     from concurrent.futures import ThreadPoolExecutor, as_completed
 
-    max_workers = min(6, len(suburbs))
+    max_workers = min(8, len(suburbs))
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         futures = {
             executor.submit(_run_scrape, s['id'], s['slug'], s['name']): s

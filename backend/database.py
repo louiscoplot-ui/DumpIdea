@@ -43,6 +43,7 @@ def init_db():
             sold_price TEXT,
             sold_date TEXT,
             listing_type TEXT,
+            listing_date TEXT,
             FOREIGN KEY (suburb_id) REFERENCES suburbs(id) ON DELETE CASCADE
         );
 
@@ -69,6 +70,11 @@ def init_db():
             FOREIGN KEY (suburb_id) REFERENCES suburbs(id) ON DELETE CASCADE
         );
     """)
+    # Migrate: add listing_date column if missing
+    try:
+        conn.execute("ALTER TABLE listings ADD COLUMN listing_date TEXT")
+    except Exception:
+        pass  # column already exists
     conn.commit()
     conn.close()
 
@@ -164,7 +170,8 @@ def upsert_listing(suburb_id, reiwa_url, data):
                 last_seen = ?,
                 sold_price = COALESCE(?, sold_price),
                 sold_date = COALESCE(?, sold_date),
-                listing_type = COALESCE(?, listing_type)
+                listing_type = COALESCE(?, listing_type),
+                listing_date = COALESCE(?, listing_date)
             WHERE id = ?
         """, (
             data.get('address'), data.get('price_text'),
@@ -175,6 +182,7 @@ def upsert_listing(suburb_id, reiwa_url, data):
             now,
             data.get('sold_price'), data.get('sold_date'),
             data.get('listing_type'),
+            data.get('listing_date'),
             existing['id']
         ))
         conn.commit()
@@ -186,8 +194,8 @@ def upsert_listing(suburb_id, reiwa_url, data):
                 suburb_id, address, reiwa_url, price_text,
                 bedrooms, bathrooms, parking, land_size, internal_size,
                 agency, agent, status, first_seen, last_seen,
-                sold_price, sold_date, listing_type
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                sold_price, sold_date, listing_type, listing_date
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             suburb_id, data.get('address', ''), reiwa_url, data.get('price_text'),
             data.get('bedrooms'), data.get('bathrooms'), data.get('parking'),
@@ -195,7 +203,8 @@ def upsert_listing(suburb_id, reiwa_url, data):
             data.get('agency'), data.get('agent'),
             data.get('status', 'active'), now, now,
             data.get('sold_price'), data.get('sold_date'),
-            data.get('listing_type')
+            data.get('listing_type'),
+            data.get('listing_date')
         ))
         conn.commit()
         conn.close()
