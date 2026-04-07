@@ -1,9 +1,11 @@
 import os
+import io
 import json
 import logging
 import threading
 from datetime import datetime
-from flask import Flask, request, jsonify
+from collections import Counter
+from flask import Flask, request, jsonify, send_file
 from flask_cors import CORS
 
 from database import init_db, get_db, add_suburb, remove_suburb, get_suburbs, get_listings
@@ -85,6 +87,226 @@ def list_listings():
     if statuses_str:
         statuses = [s.strip() for s in statuses_str.split(',') if s.strip()]
     return jsonify(get_listings(suburb_id=suburb_id, suburb_ids=suburb_ids, status=status, statuses=statuses))
+
+
+@app.route('/api/listings/export', methods=['GET'])
+def export_listings():
+    """Export filtered listings to Excel with summary sheets."""
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+
+    # Parse same filters as list_listings
+    suburb_ids_str = request.args.get('suburb_ids', '')
+    statuses_str = request.args.get('statuses', '')
+    agent = request.args.get('agent', '').strip()
+    agency = request.args.get('agency', '').strip()
+
+    suburb_ids = None
+    if suburb_ids_str:
+        try:
+            suburb_ids = [int(x) for x in suburb_ids_str.split(',') if x.strip()]
+        except ValueError:
+            pass
+    statuses = None
+    if statuses_str:
+        statuses = [s.strip() for s in statuses_str.split(',') if s.strip()]
+
+    listings = get_listings(suburb_ids=suburb_ids, statuses=statuses)
+
+    # Apply agent/agency filters
+    if agent:
+        listings = [l for l in listings if l.get('agent') == agent]
+    if agency:
+        listings = [l for l in listings if l.get('agency') == agency]
+
+    # Styles
+    header_font = Font(bold=True, color="FFFFFF", size=11)
+    header_fill = PatternFill(start_color="1e293b", end_color="1e293b", fill_type="solid")
+    header_align = Alignment(horizontal="center", vertical="center")
+    thin_border = Border(
+        left=Side(style='thin', color='cccccc'),
+        right=Side(style='thin', color='cccccc'),
+        top=Side(style='thin', color='cccccc'),
+        bottom=Side(style='thin', color='cccccc'),
+    )
+    summary_header_fill = PatternFill(start_color="334155", end_color="334155", fill_type="solid")
+
+    wb = Workbook()
+
+    # === Sheet 1: Listings ===
+    ws = wb.active
+    ws.title = "Listings"
+
+    columns = ['Address', 'Suburb', 'Price', 'Bed', 'Bath', 'Car', 'Land', 'Internal',
+               'Agency', 'Agent', 'Status', 'Type', 'First Seen', 'Last Seen', 'Link']
+
+    for col_idx, col_name in enumerate(columns, 1):
+        cell = ws.cell(row=1, column=col_idx, value=col_name)
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.alignment = header_align
+        cell.border = thin_border
+
+    for row_idx, l in enumerate(listings, 2):
+        values = [
+            l.get('address', ''),
+            l.get('suburb_name', ''),
+            l.get('price_text', ''),
+            l.get('bedrooms'),
+            l.get('bathrooms'),
+            l.get('parking'),
+            l.get('land_size', ''),
+            l.get('internal_size', ''),
+            l.get('agency', ''),
+            l.get('agent', ''),
+            (l.get('status', '') or '').replace('_', ' ').title(),
+            l.get('listing_type', ''),
+            l.get('first_seen', ''),
+            l.get('last_seen', ''),
+            l.get('reiwa_url', ''),
+        ]
+        for col_idx, val in enumerate(values, 1):
+            cell = ws.cell(row=row_idx, column=col_idx, value=val)
+            cell.border = thin_border
+
+    # Auto-width
+    for col_idx in range(1, len(columns) + 1):
+        max_len = len(str(ws.cell(row=1, column=col_idx).value))
+        for row_idx in range(2, min(len(listings) + 2, 50)):
+            val = ws.cell(row=row_idx, column=col_idx).value
+            if val:
+                max_len = max(max_len, min(len(str(val)), 40))
+        ws.column_dimensions[ws.cell(row=1, column=col_idx).column_letter].width = max_len + 3
+
+    # Freeze header row
+    ws.freeze_panes = "A2"
+
+    # === Sheet 2: Agent Summary ===
+    ws_agents = wb.create_sheet("Agents")
+    agent_counts = Counter(l.get('agent', 'Unknown') for l in listings if l.get('agent'))
+    agent_status = {}
+    for l in listings:
+        a = l.get('agent') or 'Unknown'
+        if a not in agent_status:
+            agent_status[a] = {'active': 0, 'under_offer': 0, 'sold': 0, 'withdrawn': 0}
+        s = l.get('status', 'active')
+        if s in agent_status[a]:
+            agent_status[a][s] += 1
+
+    agent_headers = ['Agent', 'Total', 'Active', 'Under Offer', 'Sold', 'Withdrawn']
+    for col_idx, h in enumerate(agent_headers, 1):
+        cell = ws_agents.cell(row=1, column=col_idx, value=h)
+        cell.font = header_font
+        cell.fill = summary_header_fill
+        cell.alignment = header_align
+        cell.border = thin_border
+
+    for row_idx, (agent_name, total) in enumerate(agent_counts.most_common(), 2):
+        stats = agent_status.get(agent_name, {})
+        values = [agent_name, total, stats.get('active', 0), stats.get('under_offer', 0),
+                  stats.get('sold', 0), stats.get('withdrawn', 0)]
+        for col_idx, val in enumerate(values, 1):
+            cell = ws_agents.cell(row=row_idx, column=col_idx, value=val)
+            cell.border = thin_border
+
+    for col_idx in range(1, len(agent_headers) + 1):
+        ws_agents.column_dimensions[ws_agents.cell(row=1, column=col_idx).column_letter].width = 20
+    ws_agents.freeze_panes = "A2"
+
+    # === Sheet 3: Agency Summary ===
+    ws_agencies = wb.create_sheet("Agencies")
+    agency_counts = Counter(l.get('agency', 'Unknown') for l in listings if l.get('agency'))
+    agency_status = {}
+    for l in listings:
+        a = l.get('agency') or 'Unknown'
+        if a not in agency_status:
+            agency_status[a] = {'active': 0, 'under_offer': 0, 'sold': 0, 'withdrawn': 0}
+        s = l.get('status', 'active')
+        if s in agency_status[a]:
+            agency_status[a][s] += 1
+
+    agency_headers = ['Agency', 'Total', 'Active', 'Under Offer', 'Sold', 'Withdrawn']
+    for col_idx, h in enumerate(agency_headers, 1):
+        cell = ws_agencies.cell(row=1, column=col_idx, value=h)
+        cell.font = header_font
+        cell.fill = summary_header_fill
+        cell.alignment = header_align
+        cell.border = thin_border
+
+    for row_idx, (agency_name, total) in enumerate(agency_counts.most_common(), 2):
+        stats = agency_status.get(agency_name, {})
+        values = [agency_name, total, stats.get('active', 0), stats.get('under_offer', 0),
+                  stats.get('sold', 0), stats.get('withdrawn', 0)]
+        for col_idx, val in enumerate(values, 1):
+            cell = ws_agencies.cell(row=row_idx, column=col_idx, value=val)
+            cell.border = thin_border
+
+    for col_idx in range(1, len(agency_headers) + 1):
+        ws_agencies.column_dimensions[ws_agencies.cell(row=1, column=col_idx).column_letter].width = 30
+    ws_agencies.freeze_panes = "A2"
+
+    # === Sheet 4: Suburb Summary (only if multiple suburbs) ===
+    suburb_names = set(l.get('suburb_name', '') for l in listings)
+    if len(suburb_names) > 1:
+        ws_suburbs = wb.create_sheet("Suburb Summary")
+        suburb_data = {}
+        for l in listings:
+            sn = l.get('suburb_name', 'Unknown')
+            if sn not in suburb_data:
+                suburb_data[sn] = {'active': 0, 'under_offer': 0, 'sold': 0, 'withdrawn': 0, 'agents': set(), 'agencies': set()}
+            s = l.get('status', 'active')
+            if s in suburb_data[sn]:
+                suburb_data[sn][s] += 1
+            if l.get('agent'):
+                suburb_data[sn]['agents'].add(l['agent'])
+            if l.get('agency'):
+                suburb_data[sn]['agencies'].add(l['agency'])
+
+        sub_headers = ['Suburb', 'Total', 'Active', 'Under Offer', 'Sold', 'Withdrawn', 'Agents', 'Agencies']
+        for col_idx, h in enumerate(sub_headers, 1):
+            cell = ws_suburbs.cell(row=1, column=col_idx, value=h)
+            cell.font = header_font
+            cell.fill = summary_header_fill
+            cell.alignment = header_align
+            cell.border = thin_border
+
+        for row_idx, (sname, data) in enumerate(sorted(suburb_data.items()), 2):
+            total = data['active'] + data['under_offer'] + data['sold'] + data['withdrawn']
+            values = [sname, total, data['active'], data['under_offer'], data['sold'], data['withdrawn'],
+                      len(data['agents']), len(data['agencies'])]
+            for col_idx, val in enumerate(values, 1):
+                cell = ws_suburbs.cell(row=row_idx, column=col_idx, value=val)
+                cell.border = thin_border
+
+        for col_idx in range(1, len(sub_headers) + 1):
+            ws_suburbs.column_dimensions[ws_suburbs.cell(row=1, column=col_idx).column_letter].width = 20
+        ws_suburbs.freeze_panes = "A2"
+
+    # Save to buffer and send
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+
+    # Filename with date
+    date_str = datetime.now().strftime('%Y-%m-%d')
+    suburb_label = ''
+    if suburb_ids:
+        conn = get_db()
+        names = []
+        for sid in suburb_ids:
+            row = conn.execute("SELECT name FROM suburbs WHERE id = ?", (sid,)).fetchone()
+            if row:
+                names.append(row['name'])
+        conn.close()
+        if len(names) <= 3:
+            suburb_label = '_' + '_'.join(names)
+        else:
+            suburb_label = f'_{len(names)}_suburbs'
+
+    filename = f'MarketScraper{suburb_label}_{date_str}.xlsx'
+
+    return send_file(buf, mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                     as_attachment=True, download_name=filename)
 
 
 @app.route('/api/listings/summary', methods=['GET'])

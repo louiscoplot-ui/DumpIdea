@@ -279,6 +279,20 @@ function App() {
             </button>
           )}
           <button
+            className="btn btn-export"
+            onClick={() => {
+              const params = new URLSearchParams()
+              if (checkedSuburbs.size > 0) params.set('suburb_ids', Array.from(checkedSuburbs).join(','))
+              if (selectedStatuses.size > 0) params.set('statuses', Array.from(selectedStatuses).join(','))
+              if (selectedAgent) params.set('agent', selectedAgent)
+              if (selectedAgency) params.set('agency', selectedAgency)
+              window.open(`${API}/listings/export?${params.toString()}`, '_blank')
+            }}
+            disabled={filteredListings.length === 0}
+          >
+            Export Excel
+          </button>
+          <button
             className={`btn btn-secondary ${view === 'logs' ? 'active' : ''}`}
             onClick={() => setView(v => v === 'logs' ? 'listings' : 'logs')}
           >

@@ -91,6 +91,16 @@ header h1 {
   border-color: var(--primary);
 }
 
+.btn-export {
+  background: #16a34a;
+  border-color: #16a34a;
+  color: white;
+}
+
+.btn-export:hover:not(:disabled) {
+  background: #15803d;
+}
+
 .btn-small {
   padding: 4px 12px;
   font-size: 12px;
