@@ -237,7 +237,9 @@ def _parse_card(card, suburb_name):
 
 def _fetch_detail(page, url):
     """Visit listing detail page for sizes and under_offer status."""
-    out = {"land_size": "", "internal_size": "", "price_text": "", "status": None, "listing_date": ""}
+    out = {"land_size": "", "internal_size": "", "price_text": "", "status": None, "listing_date": "",
+           "address": "", "agency": "", "agent": "", "bedrooms": None, "bathrooms": None, "parking": None,
+           "listing_type": ""}
     if not url:
         return out
 
@@ -319,6 +321,43 @@ def _fetch_detail(page, url):
                     out["listing_date"] = d
                     break
 
+        # Address from detail page (h1 or h2.p-details__add)
+        addr_el = soup.find("h2", class_="p-details__add") or soup.find("h1")
+        if addr_el:
+            out["address"] = addr_el.get_text(strip=True)
+
+        # Agency from detail page
+        logo = soup.find("a", class_="agent__logo")
+        if logo:
+            sr = logo.find("span", class_="u-sr-only")
+            if sr:
+                out["agency"] = _normalise_agency(sr.get_text(strip=True))
+
+        # Agent from detail page
+        nd = soup.find("div", class_="agent__name")
+        if nd:
+            a = nd.find("a", class_="-ignore-theme")
+            if a:
+                out["agent"] = a.get_text(strip=True)
+
+        # Bed/bath/car from detail page
+        nums = [s.get_text(strip=True) for s in soup.find_all("span", class_="u-grey-dark")
+                if s.get_text(strip=True).isdigit()]
+        if len(nums) > 0:
+            out["bedrooms"] = int(nums[0])
+        if len(nums) > 1:
+            out["bathrooms"] = int(nums[1])
+        if len(nums) > 2:
+            out["parking"] = int(nums[2])
+
+        # Property type
+        page_text = soup.get_text(" ", strip=True)
+        for pt in ["House", "Unit", "Apartment", "Townhouse", "Villa", "Studio",
+                    "Duplex", "Terrace", "Land", "Rural"]:
+            if re.search(r"\b" + pt + r"\b", page_text[:2000], re.I):
+                out["listing_type"] = pt
+                break
+
     except Exception as e:
         logger.warning(f"Detail error {url}: {e}")
 
@@ -361,23 +400,39 @@ def _get_reiwa_total(soup):
     return None
 
 
+def _count_cards(page):
+    """Count p-card elements currently in the DOM."""
+    return page.evaluate("""() => document.querySelectorAll('[class*="p-card"]').length""")
+
+
 def _load_listing_page(page, url, retries=3):
-    """Load a REIWA listing page, wait for article.p-card cards, scroll to load all."""
+    """Load a REIWA listing page, wait for cards, scroll repeatedly to load all."""
     for attempt in range(1, retries + 1):
         try:
-            page.goto(url, wait_until="domcontentloaded", timeout=30000)
+            page.goto(url, wait_until="networkidle", timeout=40000)
             try:
-                page.wait_for_selector("article.p-card", timeout=6000)
+                page.wait_for_selector('[class*="p-card"]', timeout=8000)
             except Exception:
                 pass
 
-            # Scroll incrementally to trigger all lazy-loaded cards
-            for _ in range(4):
+            # Scroll incrementally, checking if new cards appear
+            prev_count = 0
+            for scroll_round in range(5):
                 page.evaluate("window.scrollBy(0, window.innerHeight)")
-                page.wait_for_timeout(400)
-            # Final scroll to absolute bottom
+                page.wait_for_timeout(500)
+                cur_count = _count_cards(page)
+                if cur_count > prev_count:
+                    prev_count = cur_count
+
+            # Final scroll to absolute bottom + extra wait
             page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
-            page.wait_for_timeout(800)
+            page.wait_for_timeout(1200)
+
+            # If new cards appeared, scroll once more
+            final_count = _count_cards(page)
+            if final_count > prev_count:
+                page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
+                page.wait_for_timeout(800)
 
             # Click any "Load More" / "Show All" buttons
             try:
@@ -391,10 +446,9 @@ def _load_listing_page(page, url, retries=3):
                     btn = page.query_selector(selector)
                     if btn and btn.is_visible():
                         btn.click()
-                        page.wait_for_timeout(1500)
-                        # Scroll again after loading more
+                        page.wait_for_timeout(2000)
                         page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
-                        page.wait_for_timeout(800)
+                        page.wait_for_timeout(1000)
                         break
             except Exception:
                 pass
@@ -477,28 +531,32 @@ def scrape_suburb(suburb_slug, suburb_id, progress_callback=None, known_urls=Non
 
                 html = listing_page.content()
                 soup = BeautifulSoup(html, "html.parser")
-                cards = soup.find_all("article", class_=lambda c: c and "p-card" in c)
-                # Also check for listing cards in other wrappers (featured/premium)
-                card_htmls = {id(c) for c in cards}
-                for tag in ["div", "section", "li"]:
-                    extra_cards = soup.find_all(tag, class_=lambda c: c and "p-card" in c)
-                    for ec in extra_cards:
-                        if id(ec) not in card_htmls:
-                            cards.append(ec)
-                            card_htmls.add(id(ec))
 
-                # Look for featured/premium listing containers with different structure
-                for featured_cls in ["featured", "premium", "highlight", "top-spot", "spotlight"]:
-                    featured_sections = soup.find_all(True, class_=lambda c: c and featured_cls in c.lower() if c else False)
-                    for section in featured_sections:
-                        # Find cards inside featured sections
-                        inner_cards = section.find_all("article", class_=lambda c: c and "p-card" in c)
-                        if not inner_cards:
-                            inner_cards = section.find_all(True, class_=lambda c: c and "p-card" in c)
-                        for ic in inner_cards:
-                            if id(ic) not in card_htmls:
-                                cards.append(ic)
-                                card_htmls.add(id(ic))
+                # Find ALL elements with p-card in their class (any tag)
+                cards = soup.find_all(True, class_=lambda c: c and "p-card" in c)
+                # De-duplicate: remove nested p-card elements (keep outermost only)
+                filtered_cards = []
+                for card in cards:
+                    # Skip if this card is inside another p-card
+                    parent_card = card.find_parent(True, class_=lambda c: c and "p-card" in c)
+                    if parent_card is None:
+                        filtered_cards.append(card)
+                cards = filtered_cards
+
+                # Also scan for listing links NOT inside any p-card (featured/promoted)
+                EXCLUDE = ["/real-estate-agent/", "/agency/", "/suburb/", "/news/", "/advice/"]
+                page_link_urls = set()
+                for a_tag in soup.find_all("a", href=True):
+                    href = a_tag["href"]
+                    if not re.search(r"-\d{5,8}/?$", href):
+                        continue
+                    if any(x in href for x in EXCLUDE):
+                        continue
+                    full_url = ("https://reiwa.com.au" + href) if href.startswith("/") else href
+                    # Check if this link is already inside a p-card
+                    parent_card = a_tag.find_parent(True, class_=lambda c: c and "p-card" in c)
+                    if parent_card is None:
+                        page_link_urls.add(full_url)
 
                 # On first page, grab REIWA's total count for comparison
                 if page_num == 1:
@@ -537,6 +595,32 @@ def scrape_suburb(suburb_slug, suburb_id, progress_callback=None, known_urls=Non
 
                 if skipped:
                     results['errors'].append(f"p{page_num}: {skipped} card(s) with no URL")
+
+                # Add orphan listing links (not inside any p-card - e.g. featured/promoted)
+                for orphan_url in page_link_urls:
+                    if orphan_url in seen_urls:
+                        continue
+                    seen_urls.add(orphan_url)
+                    new_on_page += 1
+                    rec = {
+                        "url": orphan_url,
+                        "address": "Address not disclosed",
+                        "price_text": "", "listing_type": "",
+                        "bedrooms": None, "bathrooms": None, "parking": None,
+                        "land_size": "", "internal_size": "",
+                        "agency": "", "agent": "", "status": "active",
+                        "listing_date": "",
+                    }
+                    # Try to extract address from link text
+                    for a_tag in soup.find_all("a", href=True):
+                        full = ("https://reiwa.com.au" + a_tag["href"]) if a_tag["href"].startswith("/") else a_tag["href"]
+                        if full == orphan_url:
+                            txt = a_tag.get_text(strip=True)
+                            if txt and len(txt) > 3 and len(txt) < 120:
+                                rec["address"] = txt
+                                break
+                    page_listings.append(rec)
+                    logger.info(f"{suburb_name} p{page_num}: found orphan listing link: {orphan_url}")
 
                 # Split into new vs known listings
                 new_listings = []
@@ -581,45 +665,52 @@ def scrape_suburb(suburb_slug, suburb_id, progress_callback=None, known_urls=Non
 
             results['stats']['forsale_count'] = len(results['forsale_listings'])
 
-            # Fallback: if we're short of REIWA total, re-scan page 1 for any missed URLs
+            # Fallback: if we're short of REIWA total, re-scan ALL pages for missed URLs
             reiwa_total = results['stats'].get('reiwa_total', 0)
             our_count = len(results['forsale_listings'])
             if reiwa_total and our_count < reiwa_total:
                 missing = reiwa_total - our_count
                 logger.info(f"{suburb_name}: we found {our_count}/{reiwa_total}, trying to recover {missing} missed listing(s)")
+                if progress_callback:
+                    progress_callback(f'Recovering {missing} missed listing(s)...')
 
-                # Re-load page 1 and scan all links for listing URLs we haven't seen
-                if _load_listing_page(listing_page, _build_url(suburb_slug, 1)):
+                EXCLUDE_FALLBACK = ["/real-estate-agent/", "/agency/", "/suburb/", "/news/", "/advice/"]
+                recovered = 0
+                existing_urls = {r['url'] for r in results['forsale_listings']}
+                pages_scraped = results['stats'].get('forsale_pages_scraped', 1)
+
+                for fb_page in range(1, pages_scraped + 2):  # +1 extra page just in case
+                    if recovered >= missing:
+                        break
+                    fb_url = _build_url(suburb_slug, fb_page)
+                    if not _load_listing_page(listing_page, fb_url):
+                        break
+
                     html = listing_page.content()
-                    soup = BeautifulSoup(html, "html.parser")
-                    EXCLUDE = ["/real-estate-agent/", "/agency/", "/suburb/", "/news/", "/advice/"]
-                    recovered = 0
+                    fb_soup = BeautifulSoup(html, "html.parser")
 
-                    for a_tag in soup.find_all("a", href=True):
+                    for a_tag in fb_soup.find_all("a", href=True):
                         href = a_tag["href"]
-                        # Only listing URLs with numeric ID
                         if not re.search(r"-\d{5,8}/?$", href):
                             continue
-                        if any(x in href for x in EXCLUDE):
+                        if any(x in href for x in EXCLUDE_FALLBACK):
                             continue
                         full_url = ("https://reiwa.com.au" + href) if href.startswith("/") else href
                         if full_url in seen_urls:
                             continue
 
-                        # This is a listing URL we missed - try to parse it
                         seen_urls.add(full_url)
 
                         # Find parent card if possible
-                        parent_card = a_tag.find_parent("article", class_=lambda c: c and "p-card" in c)
-                        if not parent_card:
-                            parent_card = a_tag.find_parent(True, class_=lambda c: c and "p-card" in c)
+                        parent_card = a_tag.find_parent(True, class_=lambda c: c and "p-card" in c)
 
                         if parent_card:
                             rec = _parse_card(parent_card, suburb_name)
                         else:
+                            txt = a_tag.get_text(strip=True)
                             rec = {
                                 "url": full_url,
-                                "address": a_tag.get_text(strip=True) or "Address not disclosed",
+                                "address": txt if txt and 3 < len(txt) < 120 else "Address not disclosed",
                                 "price_text": "", "listing_type": "",
                                 "bedrooms": None, "bathrooms": None, "parking": None,
                                 "land_size": "", "internal_size": "",
@@ -627,30 +718,30 @@ def scrape_suburb(suburb_slug, suburb_id, progress_callback=None, known_urls=Non
                                 "listing_date": "",
                             }
 
-                        if rec['url'] and rec['url'] not in {r['url'] for r in results['forsale_listings']}:
-                            # Fetch detail for this recovered listing
+                        if rec['url'] and rec['url'] not in existing_urls:
+                            # Always fetch detail page for recovered listings to get full info
                             if rec['url'] not in (known_urls or set()):
                                 detail = _fetch_detail(detail_pages[0], rec['url'])
-                                if detail['land_size'] and not rec['land_size']:
-                                    rec['land_size'] = detail['land_size']
-                                if detail['internal_size'] and not rec['internal_size']:
-                                    rec['internal_size'] = detail['internal_size']
-                                if detail['price_text'] and not rec['price_text']:
-                                    rec['price_text'] = detail['price_text']
-                                if detail['listing_date'] and not rec.get('listing_date'):
-                                    rec['listing_date'] = detail['listing_date']
-                                if detail['status'] == 'under_offer':
+                                for field in ['land_size', 'internal_size', 'price_text', 'listing_date',
+                                              'address', 'agency', 'agent', 'bedrooms', 'bathrooms',
+                                              'parking', 'listing_type']:
+                                    if detail.get(field) and not rec.get(field):
+                                        rec[field] = detail[field]
+                                if detail.get('status') == 'under_offer':
                                     rec['status'] = 'under_offer'
                                 results['stats']['detail_pages_scraped'] += 1
 
                             rec['reiwa_url'] = rec['url']
                             results['forsale_listings'].append(rec)
+                            existing_urls.add(rec['url'])
                             recovered += 1
-                            logger.info(f"{suburb_name}: recovered missed listing: {rec['url']}")
+                            logger.info(f"{suburb_name}: recovered missed listing from page {fb_page}: {rec['url']}")
 
-                    if recovered:
-                        results['stats']['forsale_count'] = len(results['forsale_listings'])
-                        logger.info(f"{suburb_name}: recovered {recovered} missed listing(s), new total: {results['stats']['forsale_count']}")
+                    time.sleep(0.3)
+
+                if recovered:
+                    results['stats']['forsale_count'] = len(results['forsale_listings'])
+                    logger.info(f"{suburb_name}: recovered {recovered}/{missing} missed listing(s), new total: {results['stats']['forsale_count']}")
 
             # === SOLD (2 pages) ===
             if progress_callback:
