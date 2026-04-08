@@ -237,6 +237,37 @@ def mark_withdrawn(suburb_id, seen_urls, sold_urls):
     return withdrawn_count
 
 
+def get_existing_urls(suburb_id):
+    """Get all known listing URLs for a suburb (to skip detail pages on re-scrape)."""
+    conn = get_db()
+    rows = conn.execute(
+        "SELECT reiwa_url FROM listings WHERE suburb_id = ? AND reiwa_url IS NOT NULL",
+        (suburb_id,)
+    ).fetchall()
+    conn.close()
+    return {r['reiwa_url'] for r in rows}
+
+
+def trim_sold_listings(suburb_id, keep=40):
+    """Keep only the most recent N sold listings per suburb, delete older ones."""
+    conn = get_db()
+    # Get sold listings ordered by last_seen desc
+    rows = conn.execute(
+        "SELECT id FROM listings WHERE suburb_id = ? AND status = 'sold' ORDER BY last_seen DESC",
+        (suburb_id,)
+    ).fetchall()
+    if len(rows) > keep:
+        ids_to_delete = [r['id'] for r in rows[keep:]]
+        placeholders = ','.join('?' * len(ids_to_delete))
+        conn.execute(f"DELETE FROM listings WHERE id IN ({placeholders})", ids_to_delete)
+        conn.commit()
+        deleted = len(ids_to_delete)
+    else:
+        deleted = 0
+    conn.close()
+    return deleted
+
+
 def create_scrape_log(suburb_id):
     conn = get_db()
     cursor = conn.execute(

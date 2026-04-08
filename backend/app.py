@@ -10,6 +10,7 @@ from flask_cors import CORS
 
 from database import init_db, get_db, add_suburb, remove_suburb, get_suburbs, get_listings
 from database import upsert_listing, mark_withdrawn, create_scrape_log, update_scrape_log, get_scrape_logs
+from database import get_existing_urls, trim_sold_listings
 from scraper import scrape_suburb, debug_page
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s] %(message)s')
@@ -662,7 +663,11 @@ def _run_scrape(suburb_id, slug, name):
         logger.info(f"[{name}] {msg}")
 
     try:
-        result = scrape_suburb(slug, suburb_id, progress_callback=progress_cb)
+        # Get known URLs to skip detail pages for existing listings
+        known_urls = get_existing_urls(suburb_id)
+        logger.info(f"[{name}] {len(known_urls)} known URLs in DB, will skip their detail pages")
+
+        result = scrape_suburb(slug, suburb_id, progress_callback=progress_cb, known_urls=known_urls)
 
         # Process for-sale listings — keyed by reiwa_url (no address dedup)
         # Same property by 2 agencies = 2 different REIWA URLs = 2 rows
@@ -697,6 +702,11 @@ def _run_scrape(suburb_id, slug, name):
         # Mark withdrawn — by URL, not address
         progress_cb('Checking for withdrawn listings...')
         withdrawn_count = mark_withdrawn(suburb_id, forsale_urls, sold_urls)
+
+        # Keep only 40 most recent sold listings
+        trimmed = trim_sold_listings(suburb_id, keep=40)
+        if trimmed:
+            logger.info(f"[{name}] Trimmed {trimmed} old sold listings (keeping 40 most recent)")
 
         # Use actual saved counts (not raw card counts)
         actual_forsale = len(forsale_urls)

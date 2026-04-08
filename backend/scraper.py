@@ -215,6 +215,12 @@ def _parse_card(card, suburb_name):
         if a:
             agent = a.get_text(strip=True)
 
+    # Under offer detection from card text
+    card_status = "active"
+    card_text_lower = ct.lower()
+    if "under offer" in card_text_lower or "under contract" in card_text_lower:
+        card_status = "under_offer"
+
     return {
         "url": url,
         "address": address,
@@ -227,7 +233,7 @@ def _parse_card(card, suburb_name):
         "internal_size": internal,
         "agency": agency,
         "agent": agent,
-        "status": "active",
+        "status": card_status,
         "listing_date": _extract_date(card),
     }
 
@@ -380,7 +386,7 @@ def _load_listing_page(page, url, retries=3):
     return False
 
 
-def scrape_suburb(suburb_slug, suburb_id, progress_callback=None):
+def scrape_suburb(suburb_slug, suburb_id, progress_callback=None, known_urls=None):
     """Scrape all for-sale and sold listings for a suburb."""
     suburb_name = suburb_slug.replace("-", " ").title()
     results = {
@@ -487,17 +493,30 @@ def scrape_suburb(suburb_slug, suburb_id, progress_callback=None):
                 if skipped:
                     results['errors'].append(f"p{page_num}: {skipped} card(s) with no URL")
 
-                # Fetch all detail pages for this page's listings
-                if page_listings:
+                # Split into new vs known listings
+                new_listings = []
+                known_listings = []
+                _known = known_urls or set()
+
+                for rec in page_listings:
+                    if rec['url'] in _known:
+                        known_listings.append(rec)
+                    else:
+                        new_listings.append(rec)
+
+                # Only fetch detail pages for NEW listings
+                if new_listings:
                     if progress_callback:
-                        progress_callback(f'For-sale page {page_num}: fetching {len(page_listings)} detail pages...')
+                        progress_callback(f'For-sale page {page_num}: {len(new_listings)} new, {len(known_listings)} known (skipped)')
 
-                    _fetch_details_batch(detail_pages, page_listings)
-                    results['stats']['detail_pages_scraped'] += len(page_listings)
+                    _fetch_details_batch(detail_pages, new_listings)
+                    results['stats']['detail_pages_scraped'] += len(new_listings)
+                elif known_listings and progress_callback:
+                    progress_callback(f'For-sale page {page_num}: {len(known_listings)} known (all skipped)')
 
-                    for rec in page_listings:
-                        rec['reiwa_url'] = rec['url']
-                        results['forsale_listings'].append(rec)
+                for rec in page_listings:
+                    rec['reiwa_url'] = rec['url']
+                    results['forsale_listings'].append(rec)
 
                 results['stats']['forsale_pages_scraped'] = page_num
                 logger.info(f"{suburb_name} p{page_num}: {len(cards)} cards, {new_on_page} new, total={len(results['forsale_listings'])}")
