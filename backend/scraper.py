@@ -94,14 +94,30 @@ def _parse_card(card, suburb_name):
     address = re.sub(r",?\s*" + re.escape(suburb_name) + r"$", "", address, flags=re.I).strip()
 
     url = ""
+    # Method 1: link inside h2.p-details__add
     if h2:
         a = h2.find("a", href=True)
         if a:
             url = ("https://reiwa.com.au" + a["href"]) if a["href"].startswith("/") else a["href"]
+    # Method 2: any link with REIWA listing ID pattern
     if not url:
         for a in card.find_all("a", href=True):
             if re.search(r"-\d{5,8}/?$", a["href"]):
                 url = ("https://reiwa.com.au" + a["href"]) if a["href"].startswith("/") else a["href"]
+                break
+    # Method 3: any link containing /buy/ or /sold/ or /for-sale/
+    if not url:
+        for a in card.find_all("a", href=True):
+            href = a["href"]
+            if any(x in href for x in ["/buy/", "/sold/", "/for-sale/", "/property/"]):
+                url = ("https://reiwa.com.au" + href) if href.startswith("/") else href
+                break
+    # Method 4: any link that's not # or javascript
+    if not url:
+        for a in card.find_all("a", href=True):
+            href = a["href"]
+            if href and not href.startswith("#") and not href.startswith("javascript") and href != "/":
+                url = ("https://reiwa.com.au" + href) if href.startswith("/") else href
                 break
 
     if not address and url:
@@ -424,17 +440,25 @@ def scrape_suburb(suburb_slug, suburb_id, progress_callback=None):
                 # Parse all cards first
                 page_listings = []
                 new_on_page = 0
+                skipped = 0
 
                 for card in cards:
                     rec = _parse_card(card, suburb_name)
                     card_url = rec['url']
 
-                    if not card_url or card_url in seen_urls:
+                    if not card_url:
+                        skipped += 1
+                        logger.warning(f"{suburb_name} p{page_num}: skipped card with no URL (address: {rec.get('address', '?')})")
+                        continue
+                    if card_url in seen_urls:
                         continue
 
                     seen_urls.add(card_url)
                     new_on_page += 1
                     page_listings.append(rec)
+
+                if skipped:
+                    results['errors'].append(f"p{page_num}: {skipped} card(s) with no URL")
 
                 # Fetch all detail pages for this page's listings
                 if page_listings:

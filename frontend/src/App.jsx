@@ -278,14 +278,31 @@ function App() {
   }
 
   // --- Sorting ---
+  const parseDateToSortable = (dateStr) => {
+    if (!dateStr) return ''
+    // dd/mm/yyyy -> yyyy-mm-dd for proper sorting
+    const m = dateStr.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/)
+    if (m) return `${m[3]}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`
+    return dateStr // ISO format already sortable
+  }
+
   const toggleSort = (field) => {
     if (sortField === field) setSortDir(d => d === 'asc' ? 'desc' : 'asc')
-    else { setSortField(field); setSortDir('asc') }
+    else { setSortField(field); setSortDir(field === 'listing_date' || field === 'dom' ? 'desc' : 'asc') }
   }
 
   const sortedListings = [...listings].sort((a, b) => {
-    let va = sortField === 'dom' ? (calcDOM(a) ?? -1) : a[sortField]
-    let vb = sortField === 'dom' ? (calcDOM(b) ?? -1) : b[sortField]
+    let va, vb
+    if (sortField === 'dom') {
+      va = calcDOM(a) ?? -1
+      vb = calcDOM(b) ?? -1
+    } else if (sortField === 'listing_date') {
+      va = parseDateToSortable(a.listing_date || a.first_seen)
+      vb = parseDateToSortable(b.listing_date || b.first_seen)
+    } else {
+      va = a[sortField]
+      vb = b[sortField]
+    }
     if (va == null) va = ''
     if (vb == null) vb = ''
     if (typeof va === 'number' && typeof vb === 'number')
