@@ -109,6 +109,13 @@ def _parse_card(card, suburb_name):
             if re.search(r"-\d{5,8}/?$", href) and not any(x in href for x in EXCLUDE_URL_PATTERNS):
                 url = ("https://reiwa.com.au" + href) if href.startswith("/") else href
                 break
+    # Method 3: link containing /buy/ or /sold/ or /for-sale/ (safe property URLs only)
+    if not url:
+        for a in card.find_all("a", href=True):
+            href = a["href"]
+            if any(x in href for x in ["/buy/", "/sold/", "/for-sale/"]) and not any(x in href for x in EXCLUDE_URL_PATTERNS):
+                url = ("https://reiwa.com.au" + href) if href.startswith("/") else href
+                break
 
     if not address and url:
         m = re.search(r"\.com\.au/(.+)-\d{5,8}/?$", url)

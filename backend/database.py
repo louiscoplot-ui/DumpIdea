@@ -7,6 +7,29 @@ DB_PATH = os.path.join(os.path.dirname(__file__), 'reiwa.db')
 BACKUP_DIR = os.path.join(os.path.dirname(__file__), 'backups')
 
 
+def restore_false_withdrawn(suburb_id=None):
+    """Restore listings that were falsely marked as withdrawn recently (within last 24h).
+    Called when we suspect a bad scrape caused mass withdrawals."""
+    conn = get_db()
+    now = datetime.utcnow().isoformat()
+    yesterday = (datetime.utcnow() - __import__('datetime').timedelta(hours=24)).isoformat()
+
+    if suburb_id:
+        result = conn.execute(
+            "UPDATE listings SET status = 'active' WHERE status = 'withdrawn' AND last_seen > ? AND suburb_id = ?",
+            (yesterday, suburb_id)
+        )
+    else:
+        result = conn.execute(
+            "UPDATE listings SET status = 'active' WHERE status = 'withdrawn' AND last_seen > ?",
+            (yesterday,)
+        )
+    restored = result.rowcount
+    conn.commit()
+    conn.close()
+    return restored
+
+
 def cleanup_agent_entries():
     """Remove agent profile entries that were incorrectly scraped as listings."""
     conn = get_db()
@@ -242,7 +265,12 @@ def upsert_listing(suburb_id, reiwa_url, data):
 
 
 def mark_withdrawn(suburb_id, seen_urls, sold_urls):
-    """Mark listings as withdrawn if their URL disappeared from for-sale and isn't in sold."""
+    """Mark listings as withdrawn if their URL disappeared from for-sale and isn't in sold.
+
+    Safety check: only mark withdrawn if we scraped at least 70% of known active listings.
+    If the scrape captured way fewer than expected, something went wrong and we shouldn't
+    mark anything as withdrawn.
+    """
     conn = get_db()
     now = datetime.utcnow().isoformat()
 
@@ -251,9 +279,27 @@ def mark_withdrawn(suburb_id, seen_urls, sold_urls):
         (suburb_id,)
     ).fetchall()
 
-    all_seen = set(seen_urls) | set(sold_urls)
-    withdrawn_count = 0
+    if not current_active:
+        conn.close()
+        return 0
 
+    all_seen = set(seen_urls) | set(sold_urls)
+
+    # Safety: if we scraped less than 70% of known active listings, skip withdrawn marking
+    # This prevents mass-withdrawing when the scraper has issues
+    active_count = len(current_active)
+    matched = sum(1 for l in current_active if l['reiwa_url'] in all_seen)
+
+    if active_count > 5 and matched < active_count * 0.7:
+        import logging
+        logging.getLogger(__name__).warning(
+            f"Suburb {suburb_id}: only matched {matched}/{active_count} active listings. "
+            f"Skipping withdrawn marking to prevent false positives."
+        )
+        conn.close()
+        return 0
+
+    withdrawn_count = 0
     for listing in current_active:
         if listing['reiwa_url'] not in all_seen:
             conn.execute(
