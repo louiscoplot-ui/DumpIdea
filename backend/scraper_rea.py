@@ -355,6 +355,67 @@ def _get_rea_total(soup):
     return None
 
 
+def _launch_rea_browser(p):
+    """Launch a browser for REA, trying multiple strategies to bypass detection.
+    Returns (browser, context) tuple."""
+
+    # Strategy 1: Firefox (Cloudflare is least aggressive with Firefox)
+    try:
+        logger.info("[REA] Trying Firefox...")
+        browser = p.firefox.launch(
+            headless=True,
+            args=[],
+        )
+        context = browser.new_context(
+            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:134.0) Gecko/20100101 Firefox/134.0",
+            viewport={'width': 1366, 'height': 768},
+            locale='en-AU',
+            timezone_id='Australia/Perth',
+            extra_http_headers={
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+                'Accept-Language': 'en-AU,en;q=0.5',
+            }
+        )
+        logger.info("[REA] Firefox launched successfully")
+        return browser, context
+    except Exception as e:
+        logger.warning(f"[REA] Firefox failed: {e}")
+
+    # Strategy 2: Real Chrome via channel (uses user's installed Chrome)
+    try:
+        logger.info("[REA] Trying Chrome channel...")
+        browser = p.chromium.launch(
+            headless=True,
+            channel='chrome',
+            args=[
+                '--disable-blink-features=AutomationControlled',
+                '--disable-infobars',
+            ],
+        )
+        context = _create_stealth_context(browser)
+        logger.info("[REA] Chrome channel launched successfully")
+        return browser, context
+    except Exception as e:
+        logger.warning(f"[REA] Chrome channel failed: {e}")
+
+    # Strategy 3: Chromium with stealth (fallback)
+    logger.info("[REA] Falling back to Chromium with stealth...")
+    launch_opts = {
+        'headless': True,
+        'args': [
+            '--no-sandbox', '--disable-setuid-sandbox',
+            '--disable-blink-features=AutomationControlled',
+            '--disable-infobars',
+        ],
+    }
+    if CHROMIUM_PATH:
+        launch_opts['executable_path'] = CHROMIUM_PATH
+
+    browser = p.chromium.launch(**launch_opts)
+    context = _create_stealth_context(browser)
+    return browser, context
+
+
 def _create_stealth_context(browser):
     """Create a browser context with anti-detection measures."""
     context = browser.new_context(
@@ -522,20 +583,7 @@ def scrape_suburb_rea(suburb_name, suburb_id, progress_callback=None, known_urls
     }
 
     with sync_playwright() as p:
-        launch_opts = {
-            'headless': True,
-            'args': [
-                '--no-sandbox', '--disable-setuid-sandbox',
-                '--disable-blink-features=AutomationControlled',
-                '--disable-infobars',
-                '--window-size=1366,768',
-            ],
-        }
-        if CHROMIUM_PATH:
-            launch_opts['executable_path'] = CHROMIUM_PATH
-
-        browser = p.chromium.launch(**launch_opts)
-        context = _create_stealth_context(browser)
+        browser, context = _launch_rea_browser(p)
 
         listing_page = context.new_page()
 
@@ -701,27 +749,16 @@ def debug_rea_page(suburb_name):
 
     try:
         with sync_playwright() as p:
-            launch_opts = {
-                'headless': True,
-                'args': [
-                    '--no-sandbox', '--disable-setuid-sandbox',
-                    '--disable-blink-features=AutomationControlled',
-                    '--disable-infobars',
-                    '--window-size=1366,768',
-                ],
-            }
-            if CHROMIUM_PATH:
-                launch_opts['executable_path'] = CHROMIUM_PATH
-            browser = p.chromium.launch(**launch_opts)
-            context = _create_stealth_context(browser)
+            browser, context = _launch_rea_browser(p)
             page = context.new_page()
 
             # Visit homepage first to establish session
             try:
                 page.goto(REA_BASE, wait_until="domcontentloaded", timeout=15000)
                 page.wait_for_timeout(2000)
-            except Exception:
-                pass
+                result['homepage_title'] = page.title()
+            except Exception as e:
+                result['homepage_error'] = str(e)
 
             _load_rea_page(page, url)
             html = page.content()
@@ -729,13 +766,12 @@ def debug_rea_page(suburb_name):
 
             result['title'] = page.title()
             result['final_url'] = page.url  # Check if redirected
+            result['html_size'] = len(html)
+            result['html_preview'] = html[:2000]  # Raw HTML for debugging
 
             # Check bot detection
             if "captcha" in html.lower() or "are you a robot" in html.lower() or "access denied" in html.lower():
                 result['bot_detected'] = True
-
-            # Capture raw HTML size for debugging
-            result['html_size'] = len(html)
 
             # Try all card strategies and report counts
             s1 = soup.find_all(True, attrs={"data-testid": re.compile(r"listing-card", re.I)})
