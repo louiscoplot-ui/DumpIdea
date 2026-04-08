@@ -21,6 +21,7 @@ CORS(app)
 
 # Track active scraping jobs
 scrape_jobs = {}  # suburb_id -> {status, progress, started_at}
+scrape_cancel = set()  # suburb_ids to cancel
 
 
 @app.route('/api/ping', methods=['GET'])
@@ -568,6 +569,17 @@ def start_scrape_all():
     return jsonify({'status': 'started', 'suburbs': [s['name'] for s in active_suburbs]})
 
 
+@app.route('/api/scrape/cancel', methods=['POST'])
+def cancel_scrape():
+    """Cancel all running scrapes."""
+    running_ids = [sid for sid, job in scrape_jobs.items() if job.get('status') == 'running']
+    for sid in running_ids:
+        scrape_cancel.add(sid)
+        scrape_jobs[sid]['progress'] = 'Cancelling...'
+    logger.info(f"Cancel requested for {len(running_ids)} suburb(s): {running_ids}")
+    return jsonify({'cancelled': running_ids})
+
+
 @app.route('/api/scrape/status', methods=['GET'])
 def scrape_status():
     """Get status of all scrape jobs."""
@@ -632,10 +644,15 @@ def list_scrape_logs():
 
 
 def _run_scrape_all(suburbs):
-    """Run scrape for suburbs in parallel (up to 3 at a time)."""
+    """Run scrape for suburbs in parallel (up to 8 at a time)."""
     from concurrent.futures import ThreadPoolExecutor, as_completed
 
     max_workers = min(8, len(suburbs))
+
+    # Mark all suburbs as queued first
+    for s in suburbs:
+        scrape_cancel.discard(s['id'])
+
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         futures = {
             executor.submit(_run_scrape, s['id'], s['slug'], s['name']): s
@@ -667,7 +684,22 @@ def _run_scrape(suburb_id, slug, name):
         known_urls = get_existing_urls(suburb_id)
         logger.info(f"[{name}] {len(known_urls)} known URLs in DB, will skip their detail pages")
 
-        result = scrape_suburb(slug, suburb_id, progress_callback=progress_cb, known_urls=known_urls)
+        def cancel_check():
+            return suburb_id in scrape_cancel
+
+        result = scrape_suburb(slug, suburb_id, progress_callback=progress_cb, known_urls=known_urls, cancel_check=cancel_check)
+
+        # Check if cancelled
+        if suburb_id in scrape_cancel:
+            scrape_cancel.discard(suburb_id)
+            scrape_jobs[suburb_id] = {
+                'status': 'cancelled',
+                'progress': 'Scrape cancelled by user',
+                'completed_at': datetime.utcnow().isoformat(),
+            }
+            update_scrape_log(log_id, completed_at=datetime.utcnow().isoformat(), errors='Cancelled by user')
+            logger.info(f"Scrape cancelled for {name}")
+            return
 
         # Process for-sale listings — keyed by reiwa_url (no address dedup)
         # Same property by 2 agencies = 2 different REIWA URLs = 2 rows

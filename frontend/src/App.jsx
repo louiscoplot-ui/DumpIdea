@@ -229,6 +229,11 @@ function App() {
     fetchScrapeStatus()
   }
 
+  const cancelScrape = async () => {
+    await fetch(`${API}/scrape/cancel`, { method: 'POST' })
+    fetchScrapeStatus()
+  }
+
   // Multi-status toggle
   const toggleStatus = (status) => {
     setSelectedStatuses(prev => {
@@ -336,7 +341,7 @@ function App() {
   const scrapeJobs = Object.entries(scrapeStatus).map(([id, job]) => {
     const suburb = suburbs.find(s => s.id === parseInt(id))
     return { id, name: suburb?.name || `Suburb ${id}`, ...job }
-  }).filter(j => j.status === 'running' || j.status === 'completed' || j.status === 'error')
+  }).filter(j => j.status === 'running' || j.status === 'completed' || j.status === 'error' || j.status === 'cancelled')
 
   const completedCount = scrapeJobs.filter(j => j.status === 'completed').length
   const totalJobs = scrapeJobs.length
@@ -494,6 +499,11 @@ function App() {
               {estimatedRemaining !== null && isAnyScraping && (
                 <span>~{formatTime(estimatedRemaining)} remaining</span>
               )}
+              {isAnyScraping && (
+                <button className="btn btn-danger btn-small" onClick={cancelScrape}>
+                  Cancel Scraping
+                </button>
+              )}
             </div>
 
             {/* Job list */}
@@ -504,6 +514,7 @@ function App() {
                   <span className={`job-status ${job.status}`}>
                     {job.status === 'running' && '⏳ '}
                     {job.status === 'completed' && '✓ '}
+                    {job.status === 'cancelled' && '⊘ '}
                     {job.status === 'error' && '✗ '}
                     {job.progress || job.status}
                   </span>
