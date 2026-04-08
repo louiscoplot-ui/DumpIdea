@@ -93,30 +93,20 @@ def _parse_card(card, suburb_name):
     address = h2.get_text(strip=True) if h2 else ""
     address = re.sub(r",?\s*" + re.escape(suburb_name) + r"$", "", address, flags=re.I).strip()
 
+    # URLs to exclude (agent profiles, agency pages, etc.)
+    EXCLUDE_URL_PATTERNS = ["/real-estate-agent/", "/agency/", "/suburb/", "/news/", "/advice/"]
+
     url = ""
     # Method 1: link inside h2.p-details__add
     if h2:
         a = h2.find("a", href=True)
-        if a:
+        if a and not any(x in a["href"] for x in EXCLUDE_URL_PATTERNS):
             url = ("https://reiwa.com.au" + a["href"]) if a["href"].startswith("/") else a["href"]
     # Method 2: any link with REIWA listing ID pattern
     if not url:
         for a in card.find_all("a", href=True):
-            if re.search(r"-\d{5,8}/?$", a["href"]):
-                url = ("https://reiwa.com.au" + a["href"]) if a["href"].startswith("/") else a["href"]
-                break
-    # Method 3: any link containing /buy/ or /sold/ or /for-sale/
-    if not url:
-        for a in card.find_all("a", href=True):
             href = a["href"]
-            if any(x in href for x in ["/buy/", "/sold/", "/for-sale/", "/property/"]):
-                url = ("https://reiwa.com.au" + href) if href.startswith("/") else href
-                break
-    # Method 4: any link that's not # or javascript
-    if not url:
-        for a in card.find_all("a", href=True):
-            href = a["href"]
-            if href and not href.startswith("#") and not href.startswith("javascript") and href != "/":
+            if re.search(r"-\d{5,8}/?$", href) and not any(x in href for x in EXCLUDE_URL_PATTERNS):
                 url = ("https://reiwa.com.au" + href) if href.startswith("/") else href
                 break
 
@@ -481,7 +471,11 @@ def scrape_suburb(suburb_slug, suburb_id, progress_callback=None, known_urls=Non
 
                     if not card_url:
                         skipped += 1
-                        logger.warning(f"{suburb_name} p{page_num}: skipped card with no URL (address: {rec.get('address', '?')})")
+                        continue
+                    # Skip agent profile cards
+                    if "/real-estate-agent/" in card_url or "/agency/" in card_url:
+                        skipped += 1
+                        logger.debug(f"{suburb_name} p{page_num}: skipped agent card: {card_url}")
                         continue
                     if card_url in seen_urls:
                         continue

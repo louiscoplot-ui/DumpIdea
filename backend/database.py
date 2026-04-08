@@ -1,8 +1,38 @@
 import sqlite3
+import shutil
 import os
 from datetime import datetime
 
 DB_PATH = os.path.join(os.path.dirname(__file__), 'reiwa.db')
+BACKUP_DIR = os.path.join(os.path.dirname(__file__), 'backups')
+
+
+def cleanup_agent_entries():
+    """Remove agent profile entries that were incorrectly scraped as listings."""
+    conn = get_db()
+    result = conn.execute(
+        "DELETE FROM listings WHERE reiwa_url LIKE '%/real-estate-agent/%' OR reiwa_url LIKE '%/agency/%'"
+    )
+    deleted = result.rowcount
+    conn.commit()
+    conn.close()
+    return deleted
+
+
+def backup_db():
+    """Create a timestamped backup of the database."""
+    if not os.path.exists(DB_PATH):
+        return
+    if os.path.getsize(DB_PATH) < 1024:  # Skip if DB is nearly empty
+        return
+    os.makedirs(BACKUP_DIR, exist_ok=True)
+    stamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    backup_path = os.path.join(BACKUP_DIR, f'reiwa_{stamp}.db')
+    shutil.copy2(DB_PATH, backup_path)
+    # Keep only last 5 backups
+    backups = sorted([f for f in os.listdir(BACKUP_DIR) if f.endswith('.db')])
+    for old in backups[:-5]:
+        os.remove(os.path.join(BACKUP_DIR, old))
 
 
 def get_db():

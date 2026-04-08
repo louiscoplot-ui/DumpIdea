@@ -10,7 +10,7 @@ from flask_cors import CORS
 
 from database import init_db, get_db, add_suburb, remove_suburb, get_suburbs, get_listings
 from database import upsert_listing, mark_withdrawn, create_scrape_log, update_scrape_log, get_scrape_logs
-from database import get_existing_urls, trim_sold_listings
+from database import get_existing_urls, trim_sold_listings, cleanup_agent_entries
 from scraper import scrape_suburb, debug_page
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s] %(message)s')
@@ -741,4 +741,7 @@ def _run_scrape(suburb_id, slug, name):
 
 if __name__ == '__main__':
     init_db()
+    cleaned = cleanup_agent_entries()
+    if cleaned:
+        logger.info(f"Cleaned up {cleaned} agent profile entries from DB")
     app.run(host='0.0.0.0', port=5000, debug=True)
