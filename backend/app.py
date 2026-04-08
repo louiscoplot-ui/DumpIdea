@@ -12,6 +12,7 @@ from database import init_db, get_db, add_suburb, remove_suburb, get_suburbs, ge
 from database import upsert_listing, mark_withdrawn, create_scrape_log, update_scrape_log, get_scrape_logs
 from database import get_existing_urls, trim_sold_listings, cleanup_agent_entries, restore_false_withdrawn
 from scraper import scrape_suburb, debug_page
+from scraper_rea import scrape_suburb_rea, debug_rea_page
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s] %(message)s')
 logger = logging.getLogger(__name__)
@@ -641,6 +642,170 @@ def scrape_selected():
 def list_scrape_logs():
     suburb_id = request.args.get('suburb_id', type=int)
     return jsonify(get_scrape_logs(suburb_id=suburb_id))
+
+
+# --- REA SCRAPING ---
+
+@app.route('/api/scrape/rea/selected', methods=['POST'])
+def scrape_rea_selected():
+    """Scrape selected suburbs from realestate.com.au."""
+    data = request.json
+    suburb_ids = data.get('suburb_ids', [])
+    if not suburb_ids:
+        return jsonify({'error': 'No suburbs selected'}), 400
+
+    conn = get_db()
+    suburbs_to_scrape = []
+    for sid in suburb_ids:
+        s = conn.execute("SELECT * FROM suburbs WHERE id = ?", (sid,)).fetchone()
+        if s:
+            suburbs_to_scrape.append(dict(s))
+    conn.close()
+
+    if not suburbs_to_scrape:
+        return jsonify({'error': 'No valid suburbs found'}), 400
+
+    for s in suburbs_to_scrape:
+        key = f"rea_{s['id']}"
+        if key in scrape_jobs and scrape_jobs[key].get('status') == 'running':
+            return jsonify({'error': f'REA scrape already running for {s["name"]}'}), 409
+
+    thread = threading.Thread(
+        target=_run_scrape_rea_all,
+        args=([{'id': s['id'], 'slug': s['slug'], 'name': s['name']} for s in suburbs_to_scrape],),
+        daemon=True
+    )
+    thread.start()
+
+    return jsonify({'status': 'started', 'suburbs': [s['name'] for s in suburbs_to_scrape]})
+
+
+@app.route('/api/scrape/rea/debug/<int:suburb_id>', methods=['GET'])
+def debug_rea_scrape(suburb_id):
+    """Debug: see what the REA scraper sees for a suburb."""
+    conn = get_db()
+    suburb = conn.execute("SELECT * FROM suburbs WHERE id = ?", (suburb_id,)).fetchone()
+    conn.close()
+    if not suburb:
+        return jsonify({'error': 'Suburb not found'}), 404
+    result = debug_rea_page(suburb['name'])
+    return jsonify(result)
+
+
+def _run_scrape_rea_all(suburbs):
+    """Run REA scrape for suburbs in parallel."""
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+
+    max_workers = min(4, len(suburbs))  # Lower parallelism for REA (anti-bot)
+    for s in suburbs:
+        scrape_cancel.discard(s['id'])
+
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        futures = {
+            executor.submit(_run_scrape_rea, s['id'], s['name']): s
+            for s in suburbs
+        }
+        for future in as_completed(futures):
+            s = futures[future]
+            try:
+                future.result()
+            except Exception as e:
+                logger.error(f"[REA] Scrape thread error for {s['name']}: {e}")
+
+
+def _run_scrape_rea(suburb_id, name):
+    """Execute REA scraping for a single suburb."""
+    job_key = f"rea_{suburb_id}"
+    log_id = create_scrape_log(suburb_id)
+    scrape_jobs[job_key] = {
+        'status': 'running',
+        'progress': f'[REA] Starting scrape for {name}...',
+        'started_at': datetime.utcnow().isoformat(),
+        'source': 'rea',
+    }
+
+    def progress_cb(msg):
+        scrape_jobs[job_key]['progress'] = msg
+        logger.info(f"[REA][{name}] {msg}")
+
+    try:
+        known_urls = get_existing_urls(suburb_id)
+
+        def cancel_check():
+            return suburb_id in scrape_cancel
+
+        result = scrape_suburb_rea(name, suburb_id, progress_callback=progress_cb,
+                                    known_urls=known_urls, cancel_check=cancel_check)
+
+        if suburb_id in scrape_cancel:
+            scrape_cancel.discard(suburb_id)
+            scrape_jobs[job_key] = {
+                'status': 'cancelled',
+                'progress': '[REA] Cancelled',
+                'completed_at': datetime.utcnow().isoformat(),
+                'source': 'rea',
+            }
+            return
+
+        # Save for-sale listings
+        new_count = 0
+        updated_count = 0
+        forsale_urls = []
+
+        progress_cb('[REA] Saving for-sale listings...')
+        for listing in result['forsale_listings']:
+            url = listing.get('reiwa_url', '').strip()
+            if not url:
+                continue
+            forsale_urls.append(url)
+            action = upsert_listing(suburb_id, url, listing)
+            if action == 'new':
+                new_count += 1
+            else:
+                updated_count += 1
+
+        # Save sold listings
+        saved_sold = 0
+        sold_urls = []
+        progress_cb('[REA] Saving sold listings...')
+        for listing in result['sold_listings']:
+            url = listing.get('reiwa_url', '').strip()
+            if not url:
+                continue
+            sold_urls.append(url)
+            upsert_listing(suburb_id, url, listing)
+            saved_sold += 1
+
+        actual_forsale = len(forsale_urls)
+        update_scrape_log(
+            log_id,
+            completed_at=datetime.utcnow().isoformat(),
+            forsale_count=actual_forsale,
+            sold_count=saved_sold,
+            new_count=new_count,
+            updated_count=updated_count,
+            withdrawn_count=0,
+            errors=json.dumps(result['errors']) if result['errors'] else None
+        )
+
+        scrape_jobs[job_key] = {
+            'status': 'completed',
+            'progress': f'[REA] Done! {actual_forsale} active, {saved_sold} sold, {new_count} new',
+            'completed_at': datetime.utcnow().isoformat(),
+            'stats': result['stats'],
+            'source': 'rea',
+        }
+        logger.info(f"[REA] Scrape completed for {name}: {result['stats']}")
+
+    except Exception as e:
+        logger.error(f"[REA] Scrape failed for {name}: {e}")
+        update_scrape_log(log_id, completed_at=datetime.utcnow().isoformat(), errors=str(e))
+        scrape_jobs[job_key] = {
+            'status': 'error',
+            'progress': f'[REA] Error: {str(e)}',
+            'error': str(e),
+            'source': 'rea',
+        }
 
 
 def _run_scrape_all(suburbs):

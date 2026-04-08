@@ -234,6 +234,18 @@ function App() {
     fetchScrapeStatus()
   }
 
+  const scrapeREA = async () => {
+    if (checkedSuburbs.size === 0) return
+    scrapeStartRef.current = Date.now()
+    await fetch(`${API}/scrape/rea/selected`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ suburb_ids: Array.from(checkedSuburbs) })
+    })
+    setShowScrapeModal(true)
+    fetchScrapeStatus()
+  }
+
   // Multi-status toggle
   const toggleStatus = (status) => {
     setSelectedStatuses(prev => {
@@ -329,6 +341,7 @@ function App() {
   const uniqueAgencies = [...new Set(listings.map(l => l.agency).filter(Boolean))].sort()
 
   const isAnyScraping = Object.values(scrapeStatus).some(j => j.status === 'running')
+  const isAnyReaScraping = Object.entries(scrapeStatus).some(([k, j]) => k.startsWith('rea_') && j.status === 'running')
 
   const statusColors = {
     active: '#22c55e',
@@ -367,7 +380,14 @@ function App() {
             onClick={scrapeSelected}
             disabled={isAnyScraping || checkedSuburbs.size === 0}
           >
-            {isAnyScraping ? 'Scraping...' : `Scrape Selected (${checkedSuburbs.size})`}
+            {isAnyScraping ? 'Scraping...' : `Scrape REIWA (${checkedSuburbs.size})`}
+          </button>
+          <button
+            className="btn btn-rea"
+            onClick={scrapeREA}
+            disabled={isAnyScraping || checkedSuburbs.size === 0}
+          >
+            {isAnyScraping ? 'Scraping...' : `Scrape REA (${checkedSuburbs.size})`}
           </button>
           {isAnyScraping && (
             <button className="btn btn-secondary" onClick={() => setShowScrapeModal(true)}>
@@ -822,6 +842,7 @@ function App() {
                         ['dom', 'DOM'],
                         ['status', 'Status'],
                         ['listing_type', 'Type'],
+                        ['source', 'Source'],
                       ].map(([field, label]) => (
                         <th key={field} onClick={() => toggleSort(field)} className="sortable">
                           {label}
@@ -859,6 +880,7 @@ function App() {
                           </span>
                         </td>
                         <td>{l.listing_type || '-'}</td>
+                        <td><span className={`source-badge source-${l.source || 'reiwa'}`}>{(l.source || 'reiwa').toUpperCase()}</span></td>
                         <td className="link-cell">
                           {l.reiwa_url ? (
                             <a href={l.reiwa_url} target="_blank" rel="noopener">View</a>
@@ -868,7 +890,7 @@ function App() {
                     ))}
                     {filteredListings.length === 0 && (
                       <tr>
-                        <td colSpan="14" className="empty">
+                        <td colSpan="16" className="empty">
                           {suburbs.length === 0
                             ? 'Add a suburb to get started'
                             : 'No listings yet. Click "Scrape" to fetch data.'}

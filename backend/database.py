@@ -128,6 +128,11 @@ def init_db():
         conn.execute("ALTER TABLE listings ADD COLUMN listing_date TEXT")
     except Exception:
         pass  # column already exists
+    # Migrate: add source column (reiwa or rea)
+    try:
+        conn.execute("ALTER TABLE listings ADD COLUMN source TEXT DEFAULT 'reiwa'")
+    except Exception:
+        pass  # column already exists
     conn.commit()
     conn.close()
 
@@ -224,7 +229,8 @@ def upsert_listing(suburb_id, reiwa_url, data):
                 sold_price = COALESCE(?, sold_price),
                 sold_date = COALESCE(?, sold_date),
                 listing_type = COALESCE(?, listing_type),
-                listing_date = COALESCE(?, listing_date)
+                listing_date = COALESCE(?, listing_date),
+                source = COALESCE(?, source)
             WHERE id = ?
         """, (
             data.get('address'), data.get('price_text'),
@@ -236,6 +242,7 @@ def upsert_listing(suburb_id, reiwa_url, data):
             data.get('sold_price'), data.get('sold_date'),
             data.get('listing_type'),
             data.get('listing_date'),
+            data.get('source'),
             existing['id']
         ))
         conn.commit()
@@ -247,8 +254,8 @@ def upsert_listing(suburb_id, reiwa_url, data):
                 suburb_id, address, reiwa_url, price_text,
                 bedrooms, bathrooms, parking, land_size, internal_size,
                 agency, agent, status, first_seen, last_seen,
-                sold_price, sold_date, listing_type, listing_date
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                sold_price, sold_date, listing_type, listing_date, source
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             suburb_id, data.get('address', ''), reiwa_url, data.get('price_text'),
             data.get('bedrooms'), data.get('bathrooms'), data.get('parking'),
@@ -257,7 +264,8 @@ def upsert_listing(suburb_id, reiwa_url, data):
             data.get('status', 'active'), now, now,
             data.get('sold_price'), data.get('sold_date'),
             data.get('listing_type'),
-            data.get('listing_date')
+            data.get('listing_date'),
+            data.get('source', 'reiwa')
         ))
         conn.commit()
         conn.close()

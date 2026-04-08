@@ -117,9 +117,32 @@ header h1 {
   background: #15803d;
 }
 
+.btn-rea {
+  background: #e44d26;
+}
+.btn-rea:hover:not(:disabled) {
+  background: #c4401f;
+}
+
 .btn-small {
   padding: 4px 12px;
   font-size: 12px;
+}
+
+.source-badge {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 4px;
+  letter-spacing: 0.5px;
+}
+.source-reiwa {
+  background: #3b82f6;
+  color: #fff;
+}
+.source-rea {
+  background: #e44d26;
+  color: #fff;
 }
 
 .btn-icon {
