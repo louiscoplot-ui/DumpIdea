@@ -688,8 +688,11 @@ def debug_rea_page(suburb_name):
 
             if resp.status_code == 429:
                 retry_after = resp.headers.get('Retry-After', 'not set')
-                result['error'] = f"HTTP 429 rate limited. Retry-After: {retry_after}. Wait a few minutes then try again."
-                result['html_size'] = len(resp.text)
+                body = resp.text or ''
+                result['error'] = f"HTTP 429 rate limited. Retry-After: {retry_after}."
+                result['html_size'] = len(body)
+                result['html_preview'] = body[:2000]
+                result['response_headers'] = dict(resp.headers) if hasattr(resp.headers, 'items') else str(resp.headers)
                 return result
 
             if resp.status_code != 200:
