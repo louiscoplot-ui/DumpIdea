@@ -5,10 +5,22 @@ import random
 import logging
 from datetime import datetime, timedelta
 
-import cloudscraper
 from bs4 import BeautifulSoup
 
 logger = logging.getLogger(__name__)
+
+# Try to import curl_cffi first (best TLS impersonation), fallback to cloudscraper
+_USE_CURL_CFFI = False
+try:
+    from curl_cffi.requests import Session as CurlSession
+    _USE_CURL_CFFI = True
+    logger.info("[REA] Using curl_cffi (Chrome TLS impersonation)")
+except ImportError:
+    try:
+        import cloudscraper
+        logger.info("[REA] curl_cffi not found, using cloudscraper")
+    except ImportError:
+        logger.warning("[REA] Neither curl_cffi nor cloudscraper available!")
 
 REA_BASE = "https://www.realestate.com.au"
 MAX_PAGES = 10
@@ -29,42 +41,46 @@ def _get_postcode(suburb_name):
     return WA_POSTCODES.get(suburb_name.strip().title(), "")
 
 
+_HEADERS = {
+    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+    'Accept-Language': 'en-AU,en-GB;q=0.9,en-US;q=0.8,en;q=0.7',
+    'Sec-Fetch-Dest': 'document',
+    'Sec-Fetch-Mode': 'navigate',
+    'Sec-Fetch-Site': 'none',
+    'Sec-Fetch-User': '?1',
+    'Upgrade-Insecure-Requests': '1',
+    'Cache-Control': 'max-age=0',
+}
+
+
 def _create_scraper():
-    """Create a cloudscraper session that bypasses Cloudflare."""
-    try:
-        scraper = cloudscraper.create_scraper(
-            browser={
-                'browser': 'chrome',
-                'platform': 'windows',
-                'desktop': True,
-            },
-            delay=5,
-        )
-    except Exception:
-        # Fallback to simple requests if cloudscraper init fails
-        import requests
-        scraper = requests.Session()
-        scraper.headers.update({
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-        })
-    scraper.headers.update({
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
-        'Accept-Language': 'en-AU,en-GB;q=0.9,en-US;q=0.8,en;q=0.7',
-        'Accept-Encoding': 'gzip, deflate, br',
-        'Sec-Fetch-Dest': 'document',
-        'Sec-Fetch-Mode': 'navigate',
-        'Sec-Fetch-Site': 'none',
-        'Sec-Fetch-User': '?1',
-        'Upgrade-Insecure-Requests': '1',
-        'Cache-Control': 'max-age=0',
-        'Connection': 'keep-alive',
-    })
+    """Create a scraper session. Prefers curl_cffi (real Chrome TLS) over cloudscraper."""
+    if _USE_CURL_CFFI:
+        # curl_cffi perfectly impersonates Chrome's TLS fingerprint + HTTP/2
+        scraper = CurlSession(impersonate="chrome124")
+        scraper.headers.update(_HEADERS)
+        logger.info("[REA] Created curl_cffi session (chrome124 impersonation)")
+    else:
+        try:
+            import cloudscraper
+            scraper = cloudscraper.create_scraper(
+                browser={'browser': 'chrome', 'platform': 'windows', 'desktop': True},
+                delay=5,
+            )
+        except Exception:
+            import requests
+            scraper = requests.Session()
+            scraper.headers.update({
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+            })
+        scraper.headers.update(_HEADERS)
 
     # Warm up: visit REA homepage to establish a valid session/cookies
     try:
         logger.info("[REA] Warming up session with homepage visit...")
         resp = scraper.get(REA_BASE, timeout=15)
-        logger.info(f"[REA] Homepage returned {resp.status_code}, cookies: {len(scraper.cookies)}")
+        cookies = len(resp.cookies) if hasattr(resp, 'cookies') else '?'
+        logger.info(f"[REA] Homepage returned {resp.status_code}, cookies: {cookies}")
         time.sleep(random.uniform(2.0, 4.0))
     except Exception as e:
         logger.warning(f"[REA] Homepage warmup failed: {e}")
@@ -78,15 +94,16 @@ def _fetch_rea_page(scraper, url, retries=3, progress_callback=None):
 
     for attempt in range(1, retries + 1):
         try:
-            # Set referer to look like normal browsing
-            scraper.headers['Referer'] = REA_BASE + '/buy/in-wa/'
-            resp = scraper.get(url, timeout=15)
+            resp = scraper.get(url, timeout=15, headers={
+                'Referer': REA_BASE + '/buy/in-wa/',
+            })
 
             if resp.status_code == 200:
+                html = resp.text
                 # Check if we got actual content or a Cloudflare page
-                if len(resp.text) < 500 and ('challenge' in resp.text.lower() or 'cloudflare' in resp.text.lower()):
+                if len(html) < 500 and ('challenge' in html.lower() or 'cloudflare' in html.lower()):
                     return None, "Cloudflare challenge (blocked)"
-                return resp.text, None
+                return html, None
             elif resp.status_code == 429:
                 wait = backoff_429[min(attempt - 1, len(backoff_429) - 1)]
                 logger.warning(f"[REA] HTTP 429 rate limited on attempt {attempt}, waiting {wait}s...")
@@ -650,6 +667,7 @@ def debug_rea_page(suburb_name):
     url = _build_rea_buy_url(suburb_name, postcode, 1)
     result = {
         'url': url, 'suburb': suburb_name, 'postcode': postcode,
+        'engine': 'curl_cffi' if _USE_CURL_CFFI else 'cloudscraper',
         'http_status': None, 'title': '', 'cards_found': 0,
         'json_listings_found': 0, 'sample_card_parsed': {},
         'total_displayed': None, 'text_preview': '',
