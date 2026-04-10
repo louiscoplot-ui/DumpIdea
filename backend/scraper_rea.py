@@ -53,13 +53,33 @@ _HEADERS = {
 }
 
 
+def _load_chrome_cookies():
+    """Try to load REA cookies from user's Chrome browser."""
+    try:
+        import browser_cookie3
+        cj = browser_cookie3.chrome(domain_name='.realestate.com.au')
+        cookies = {c.name: c.value for c in cj}
+        if cookies:
+            logger.info(f"[REA] Loaded {len(cookies)} cookies from Chrome: {list(cookies.keys())}")
+        return cookies
+    except Exception as e:
+        logger.warning(f"[REA] Could not load Chrome cookies: {e}")
+        return {}
+
+
 def _create_scraper():
-    """Create a scraper session. Prefers curl_cffi (real Chrome TLS) over cloudscraper."""
+    """Create a scraper session. Uses Chrome cookies if available for Cloudflare bypass."""
+    chrome_cookies = _load_chrome_cookies()
+
     if _USE_CURL_CFFI:
-        # curl_cffi perfectly impersonates Chrome's TLS fingerprint + HTTP/2
         scraper = CurlSession(impersonate="chrome124")
         scraper.headers.update(_HEADERS)
-        logger.info("[REA] Created curl_cffi session (chrome124 impersonation)")
+        if chrome_cookies:
+            for name, value in chrome_cookies.items():
+                scraper.cookies.set(name, value, domain='.realestate.com.au')
+            logger.info(f"[REA] curl_cffi session with {len(chrome_cookies)} Chrome cookies")
+        else:
+            logger.info("[REA] curl_cffi session (no Chrome cookies found)")
     else:
         try:
             import cloudscraper
@@ -74,16 +94,20 @@ def _create_scraper():
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
             })
         scraper.headers.update(_HEADERS)
+        if chrome_cookies:
+            for name, value in chrome_cookies.items():
+                scraper.cookies.set(name, value, domain='.realestate.com.au')
 
-    # Warm up: visit REA homepage to establish a valid session/cookies
-    try:
-        logger.info("[REA] Warming up session with homepage visit...")
-        resp = scraper.get(REA_BASE, timeout=15)
-        cookies = len(resp.cookies) if hasattr(resp, 'cookies') else '?'
-        logger.info(f"[REA] Homepage returned {resp.status_code}, cookies: {cookies}")
-        time.sleep(random.uniform(2.0, 4.0))
-    except Exception as e:
-        logger.warning(f"[REA] Homepage warmup failed: {e}")
+    # Only warm up if we DON'T have Chrome cookies (avoid unnecessary requests)
+    if not chrome_cookies:
+        try:
+            logger.info("[REA] Warming up session with homepage visit...")
+            resp = scraper.get(REA_BASE, timeout=15)
+            cookies = len(resp.cookies) if hasattr(resp, 'cookies') else '?'
+            logger.info(f"[REA] Homepage returned {resp.status_code}, cookies: {cookies}")
+            time.sleep(random.uniform(2.0, 4.0))
+        except Exception as e:
+            logger.warning(f"[REA] Homepage warmup failed: {e}")
 
     return scraper
 
@@ -679,6 +703,7 @@ def debug_rea_page(suburb_name):
     try:
         scraper = _create_scraper()
         result['cookies_count'] = len(scraper.cookies)
+        result['chrome_cookies'] = list(scraper.cookies.keys()) if hasattr(scraper.cookies, 'keys') else str(len(scraper.cookies))
 
         # Direct request to see exact status
         try:
