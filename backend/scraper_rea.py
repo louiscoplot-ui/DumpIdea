@@ -28,12 +28,12 @@ MAX_PAGES = 10
 
 def _build_rea_buy_url(suburb_name, postcode, page=1):
     slug = suburb_name.lower().replace(' ', '-')
-    return f"{REA_BASE}/buy/in-{slug},+wa+{postcode}/list-{page}?includeSurrounding=false&activeSort=list-date"
+    return f"{REA_BASE}/buy/in-{slug},+wa+{postcode}/list-{page}?includeSurrounding=false&activeSort=list-date&source=refinement"
 
 
 def _build_rea_sold_url(suburb_name, postcode, page=1):
     slug = suburb_name.lower().replace(' ', '-')
-    return f"{REA_BASE}/sold/in-{slug},+wa+{postcode}/list-{page}?includeSurrounding=false&activeSort=list-date"
+    return f"{REA_BASE}/sold/in-{slug},+wa+{postcode}/list-{page}?includeSurrounding=false&activeSort=list-date&source=refinement"
 
 
 def _get_postcode(suburb_name):
