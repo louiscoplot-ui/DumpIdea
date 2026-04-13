@@ -10,15 +10,15 @@ from collections import Counter
 from flask import Flask, request, jsonify, send_file
 from flask_cors import CORS
 
+logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s] %(message)s')
+logger = logging.getLogger(__name__)
+
 from database import init_db, get_db, add_suburb, remove_suburb, get_suburbs, get_listings
 from database import upsert_listing, mark_withdrawn, create_scrape_log, update_scrape_log, get_scrape_logs
 from database import get_existing_urls, trim_sold_listings, cleanup_agent_entries, restore_false_withdrawn
 from database import backup_db
 from scraper import scrape_suburb, debug_page
 from scraper_rea import scrape_suburb_rea, debug_rea_page
-
-logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s] %(message)s')
-logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 CORS(app)
