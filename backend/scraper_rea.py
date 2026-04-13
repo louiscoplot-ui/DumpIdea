@@ -15,16 +15,19 @@ try:
     import undetected_chromedriver as uc
     _ENGINE = 'undetected_chrome'
     logger.info("[REA] Using undetected-chromedriver (real Chrome browser)")
-except ImportError:
+except Exception as _e:
+    logger.warning(f"[REA] undetected-chromedriver not available: {_e}")
     try:
         from curl_cffi.requests import Session as CurlSession
         _ENGINE = 'curl_cffi'
         logger.info("[REA] Using curl_cffi")
-    except ImportError:
+    except Exception as _e2:
+        logger.warning(f"[REA] curl_cffi not available: {_e2}")
         try:
             import cloudscraper
             _ENGINE = 'cloudscraper'
-        except ImportError:
+            logger.info("[REA] Using cloudscraper")
+        except Exception:
             logger.warning("[REA] No scraping engine available!")
 
 REA_BASE = "https://www.realestate.com.au"
