@@ -398,13 +398,7 @@ function App() {
           >
             {isAnyScraping ? 'Scraping...' : `Scrape REIWA (${checkedSuburbs.size})`}
           </button>
-          <button
-            className="btn btn-rea"
-            onClick={scrapeREA}
-            disabled={isAnyScraping || checkedSuburbs.size === 0}
-          >
-            {isAnyScraping ? 'Scraping...' : `Scrape REA (${checkedSuburbs.size})`}
-          </button>
+          {/* REA scraping disabled — PerimeterX blocks automated access */}
           {isAnyScraping && (
             <button className="btn btn-secondary" onClick={() => setShowScrapeModal(true)}>
               View Progress

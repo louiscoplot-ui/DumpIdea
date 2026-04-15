@@ -9,32 +9,11 @@ from bs4 import BeautifulSoup
 
 logger = logging.getLogger(__name__)
 
-# Engine priority: DrissionPage (CDP, best bypass) > undetected-chromedriver > curl_cffi > cloudscraper
-_ENGINE = 'none'
-try:
-    from DrissionPage import ChromiumPage, ChromiumOptions
-    _ENGINE = 'drissionpage'
-    print("[REA] >>> Engine: DrissionPage (CDP, no WebDriver)")
-except Exception as _e:
-    print(f"[REA] >>> DrissionPage FAILED: {type(_e).__name__}: {_e}")
-    try:
-        import undetected_chromedriver as uc
-        _ENGINE = 'undetected_chrome'
-        print("[REA] >>> Engine: undetected-chromedriver")
-    except Exception as _e2:
-        print(f"[REA] >>> undetected-chromedriver FAILED: {type(_e2).__name__}: {_e2}")
-        try:
-            from curl_cffi.requests import Session as CurlSession
-            _ENGINE = 'curl_cffi'
-            print("[REA] >>> Engine: curl_cffi")
-        except Exception as _e3:
-            print(f"[REA] >>> curl_cffi FAILED: {_e3}")
-            try:
-                import cloudscraper
-                _ENGINE = 'cloudscraper'
-                print("[REA] >>> Engine: cloudscraper")
-            except Exception:
-                print("[REA] >>> NO ENGINE AVAILABLE")
+# REA scraping is disabled — realestate.com.au uses PerimeterX bot detection
+# that blocks all automated approaches (cloudscraper, curl_cffi, Selenium, DrissionPage).
+# To re-enable, a rotating proxy service would be needed.
+_ENGINE = 'disabled'
+print("[REA] >>> Engine: DISABLED (PerimeterX blocks automated scraping)")
 
 REA_BASE = "https://www.realestate.com.au"
 MAX_PAGES = 10
@@ -689,10 +668,14 @@ def _fetch_page(driver_or_scraper, url, progress_callback=None):
 
 
 def scrape_suburb_rea(suburb_name, suburb_id, progress_callback=None, known_urls=None, cancel_check=None, shared_scraper=None):
-    """Scrape REA listings. Uses undetected-chromedriver if available, else HTTP.
+    """Scrape REA listings. Currently disabled due to PerimeterX bot detection."""
+    if _ENGINE == 'disabled':
+        return {
+            'forsale_listings': [], 'sold_listings': [],
+            'errors': ['REA scraping disabled - realestate.com.au blocks automated access (PerimeterX)'],
+            'stats': {'forsale_count': 0, 'sold_count': 0},
+        }
 
-    Pass shared_scraper to reuse a session/driver across multiple suburbs.
-    """
     postcode = _get_postcode(suburb_name)
     if not postcode:
         return {
@@ -870,6 +853,9 @@ def scrape_suburb_rea(suburb_name, suburb_id, progress_callback=None, known_urls
 
 def debug_rea_page(suburb_name):
     """Debug: see what we get from a REA page."""
+    if _ENGINE == 'disabled':
+        return {'error': 'REA scraping disabled - PerimeterX blocks automated access', 'engine': 'disabled'}
+
     postcode = _get_postcode(suburb_name)
     if not postcode:
         return {'error': f'No postcode for {suburb_name}'}
