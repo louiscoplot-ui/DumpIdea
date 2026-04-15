@@ -68,7 +68,13 @@ _HEADERS = {
 
 
 def _create_drission_page():
-    """Create a DrissionPage browser (CDP-based, no WebDriver = invisible to PerimeterX)."""
+    """Create a DrissionPage browser using the user's actual Chrome profile.
+
+    This reuses the user's real cookies (including PerimeterX trust cookies)
+    making it indistinguishable from the user's normal browsing.
+    NOTE: User must close their Chrome browser before this runs.
+    """
+    import os
     from DrissionPage import ChromiumPage, ChromiumOptions
 
     co = ChromiumOptions()
@@ -76,27 +82,42 @@ def _create_drission_page():
     co.set_argument('--disable-gpu')
     co.set_argument('--window-size', '1920,1080')
     co.set_argument('--lang', 'en-AU')
-    co.auto_port()  # Use random debug port
+
+    # Use the user's real Chrome profile (has PerimeterX trust cookies)
+    user_data = os.path.join(os.path.expanduser('~'), 'AppData', 'Local', 'Google', 'Chrome', 'User Data')
+    if os.path.exists(user_data):
+        co.set_user_data_path(user_data)
+        logger.info(f"[REA] Using Chrome profile: {user_data}")
+    else:
+        logger.warning(f"[REA] Chrome profile not found at {user_data}, using fresh profile")
+        co.auto_port()
 
     page = ChromiumPage(co)
-    logger.info("[REA] DrissionPage browser started (CDP, no WebDriver)")
+    logger.info("[REA] DrissionPage browser started with user profile")
 
-    # Warm up: visit REA homepage to resolve PerimeterX
+    # Brief warmup — with user profile, challenges should resolve fast
     try:
-        logger.info("[REA] Visiting homepage to resolve PerimeterX...")
+        logger.info("[REA] Visiting homepage...")
         page.get(REA_BASE)
         time.sleep(random.uniform(3.0, 5.0))
 
-        for i in range(8):
+        for i in range(6):
             html = page.html
             if 'KPSDK' in html or 'ips.js' in html:
-                logger.info(f"[REA] Homepage challenge active (round {i+1}/8)...")
+                logger.info(f"[REA] PerimeterX challenge (round {i+1}/6), simulating interaction...")
+                # Simulate human behavior
+                try:
+                    page.scroll.down(300)
+                    time.sleep(1)
+                    page.scroll.up(100)
+                except Exception:
+                    pass
                 time.sleep(4)
             else:
                 logger.info(f"[REA] Homepage loaded OK ({len(html)} bytes)")
                 break
 
-        time.sleep(random.uniform(2.0, 3.0))
+        time.sleep(random.uniform(1.0, 2.0))
     except Exception as e:
         logger.warning(f"[REA] Homepage warmup failed: {e}")
 
@@ -167,6 +188,13 @@ def _fetch_page_drission(page, url):
             html = page.html
             if 'KPSDK' in html or 'ips.js' in html:
                 logger.info(f"[REA] PerimeterX challenge (round {wait_round + 1}/8)...")
+                # Simulate human interaction to help resolve challenge
+                try:
+                    page.scroll.down(random.randint(100, 400))
+                    time.sleep(0.5)
+                    page.scroll.up(random.randint(50, 150))
+                except Exception:
+                    pass
                 time.sleep(4)
                 continue
             if '__NEXT_DATA__' in html or 'property-' in html or len(html) > 5000:
