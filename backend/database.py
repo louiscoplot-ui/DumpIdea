@@ -128,7 +128,7 @@ def init_db():
         conn.execute("ALTER TABLE listings ADD COLUMN listing_date TEXT")
     except Exception:
         pass  # column already exists
-    # Migrate: add source column (reiwa or rea)
+    # Migrate: add source column
     try:
         conn.execute("ALTER TABLE listings ADD COLUMN source TEXT DEFAULT 'reiwa'")
     except Exception:

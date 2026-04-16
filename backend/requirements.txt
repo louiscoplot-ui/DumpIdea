@@ -4,9 +4,4 @@ playwright>=1.49.0
 beautifulsoup4>=4.12.0
 gunicorn==21.2.0
 openpyxl>=3.1.0
-cloudscraper>=1.2.71
-curl_cffi>=0.7.0
 setuptools>=69.0.0
-undetected-chromedriver>=3.5.0
-selenium>=4.15.0
-DrissionPage>=4.0.0

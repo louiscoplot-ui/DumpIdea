@@ -21,7 +21,6 @@ function App() {
   const [sortDir, setSortDir] = useState('desc')
   const [selectedAgent, setSelectedAgent] = useState('')
   const [selectedAgency, setSelectedAgency] = useState('')
-  const [selectedSource, setSelectedSource] = useState('')
   const [showThemeModal, setShowThemeModal] = useState(false)
 
   const defaultTheme = {
@@ -245,18 +244,6 @@ function App() {
     fetchScrapeStatus()
   }
 
-  const scrapeREA = async () => {
-    if (checkedSuburbs.size === 0) return
-    scrapeStartRef.current = Date.now()
-    await fetch(`${API}/scrape/rea/selected`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ suburb_ids: Array.from(checkedSuburbs) })
-    })
-    setShowScrapeModal(true)
-    fetchScrapeStatus()
-  }
-
   // Multi-status toggle
   const toggleStatus = (status) => {
     setSelectedStatuses(prev => {
@@ -344,7 +331,6 @@ function App() {
   const filteredListings = sortedListings.filter(l => {
     if (selectedAgent && l.agent !== selectedAgent) return false
     if (selectedAgency && l.agency !== selectedAgency) return false
-    if (selectedSource && (l.source || 'reiwa') !== selectedSource) return false
     return true
   })
 
@@ -353,7 +339,6 @@ function App() {
   const uniqueAgencies = [...new Set(listings.map(l => l.agency).filter(Boolean))].sort()
 
   const isAnyScraping = Object.values(scrapeStatus).some(j => j.status === 'running')
-  const isAnyReaScraping = Object.entries(scrapeStatus).some(([k, j]) => k.startsWith('rea_') && j.status === 'running')
 
   const statusColors = {
     active: '#22c55e',
@@ -364,12 +349,9 @@ function App() {
 
   // Scrape modal helpers
   const scrapeJobs = Object.entries(scrapeStatus).map(([id, job]) => {
-    // REA jobs have keys like "rea_5", REIWA jobs have numeric keys like "5"
-    const isRea = id.startsWith('rea_')
-    const numericId = isRea ? parseInt(id.replace('rea_', '')) : parseInt(id)
+    const numericId = parseInt(id)
     const suburb = suburbs.find(s => s.id === numericId)
-    const prefix = isRea ? '[REA] ' : ''
-    return { id, name: prefix + (suburb?.name || `Suburb ${numericId}`), ...job }
+    return { id, name: suburb?.name || `Suburb ${numericId}`, ...job }
   }).filter(j => j.status === 'running' || j.status === 'completed' || j.status === 'error' || j.status === 'cancelled')
 
   const completedCount = scrapeJobs.filter(j => j.status === 'completed').length
@@ -398,7 +380,6 @@ function App() {
           >
             {isAnyScraping ? 'Scraping...' : `Scrape REIWA (${checkedSuburbs.size})`}
           </button>
-          {/* REA scraping disabled — PerimeterX blocks automated access */}
           {isAnyScraping && (
             <button className="btn btn-secondary" onClick={() => setShowScrapeModal(true)}>
               View Progress
@@ -824,16 +805,6 @@ function App() {
                 <div className="filter-separator" />
 
                 <select
-                  className="filter-select source-select"
-                  value={selectedSource}
-                  onChange={e => setSelectedSource(e.target.value)}
-                >
-                  <option value="">All Sources</option>
-                  <option value="reiwa">REIWA</option>
-                  <option value="rea">REA</option>
-                </select>
-
-                <select
                   className="filter-select"
                   value={selectedAgency}
                   onChange={e => setSelectedAgency(e.target.value)}
@@ -882,7 +853,6 @@ function App() {
                         ['dom', 'DOM'],
                         ['status', 'Status'],
                         ['listing_type', 'Type'],
-                        ['source', 'Source'],
                       ].map(([field, label]) => (
                         <th key={field} onClick={() => toggleSort(field)} className="sortable">
                           {label}
@@ -920,7 +890,6 @@ function App() {
                           </span>
                         </td>
                         <td>{l.listing_type || '-'}</td>
-                        <td><span className={`source-badge source-${l.source || 'reiwa'}`}>{(l.source || 'reiwa').toUpperCase()}</span></td>
                         <td className="link-cell">
                           {l.reiwa_url ? (
                             <a href={l.reiwa_url} target="_blank" rel="noopener">View</a>
@@ -930,7 +899,7 @@ function App() {
                     ))}
                     {filteredListings.length === 0 && (
                       <tr>
-                        <td colSpan="16" className="empty">
+                        <td colSpan="15" className="empty">
                           {suburbs.length === 0
                             ? 'Add a suburb to get started'
                             : 'No listings yet. Click "Scrape" to fetch data.'}
