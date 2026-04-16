@@ -631,16 +631,19 @@ function App() {
               <div className="report-suburb-selector">
                 <label className="report-check-item" onClick={() => { setReportSuburbs(new Set(suburbs.map(s => s.id))); fetchReport(new Set(suburbs.map(s => s.id))) }}>
                   <input type="checkbox" checked={reportSuburbs.size === suburbs.length} readOnly />
-                  <span>All Suburbs</span>
+                  <span>All</span>
+                </label>
+                <label className="report-check-item" onClick={() => { setReportSuburbs(new Set()); }}>
+                  <input type="checkbox" checked={reportSuburbs.size === 0} readOnly />
+                  <span>None</span>
                 </label>
                 {suburbs.map(s => (
                   <label key={s.id} className="report-check-item" onClick={(e) => {
                     e.preventDefault()
                     const next = new Set(reportSuburbs)
                     if (next.has(s.id)) { next.delete(s.id) } else { next.add(s.id) }
-                    if (next.size === 0) { setReportSuburbs(new Set(suburbs.map(x => x.id))); fetchReport(new Set(suburbs.map(x => x.id))); return }
                     setReportSuburbs(next)
-                    fetchReport(next)
+                    if (next.size > 0) fetchReport(next)
                   }}>
                     <input type="checkbox" checked={reportSuburbs.has(s.id)} readOnly />
                     <span>{s.name}</span>
