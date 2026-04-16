@@ -709,6 +709,16 @@ export default function App() {
     if (token) { fetchItems(); fetchWorkspaces(); fetchSettings(); }
   }, [fetchItems, token]);
 
+  // Auto-sync every 5s when in a workspace (items + members)
+  useEffect(() => {
+    if (!workspaceId || !token) return;
+    const id = setInterval(() => {
+      fetchItems(true);
+      fetchWorkspaces();
+    }, 5000);
+    return () => clearInterval(id);
+  }, [workspaceId, token, fetchItems, fetchWorkspaces]);
+
   const handleKeyDown = (e) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
@@ -1587,6 +1597,26 @@ export default function App() {
           </div>
         );
       })()}
+
+      {/* Workspace members bar */}
+      {workspaceId && currentWs && (
+        <div className="ws-members-bar">
+          <span className="ws-members-bar-label">👥 {currentWs.name} —</span>
+          {(currentWs.members || []).filter(m => m.status === "active").length === 0
+            ? <span className="ws-members-bar-empty">aucun membre actif</span>
+            : (currentWs.members || []).filter(m => m.status === "active").map((m, i) => (
+              <span key={i} className="ws-members-bar-chip" title={m.user_name || m.user_email || "Membre"}>
+                {m.user_picture
+                  ? <img src={m.user_picture} alt="" className="ws-members-bar-avatar" />
+                  : <span className="ws-members-bar-initial">{(m.user_name || m.user_email || "?")[0].toUpperCase()}</span>
+                }
+                <span className="ws-members-bar-name">{m.user_name || m.user_email?.split("@")[0] || "Membre"}</span>
+              </span>
+            ))
+          }
+          <span className="ws-sync-dot" title="Sync auto" />
+        </div>
+      )}
 
       {/* Filter bar + Items (list view) */}
       {activeView === "list" && <>

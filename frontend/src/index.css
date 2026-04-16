@@ -404,6 +404,86 @@ html, body {
 .badge-call_note { background: var(--call-bg); color: var(--call-color); }
 .badge-note   { background: var(--note-bg);  color: var(--note-color); }
 
+/* ─── Workspace members bar ─── */
+
+.ws-members-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 7px 14px;
+  background: var(--surface2);
+  border-radius: 10px;
+  margin-bottom: 8px;
+  font-size: 12px;
+}
+
+.ws-members-bar-label {
+  color: var(--text2);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.ws-members-bar-empty {
+  color: var(--text2);
+  font-style: italic;
+}
+
+.ws-members-bar-chip {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 2px 9px 2px 3px;
+}
+
+.ws-members-bar-avatar {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.ws-members-bar-initial {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--border-focus);
+  color: white;
+  font-size: 11px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.ws-members-bar-name {
+  color: var(--text);
+  font-weight: 500;
+  max-width: 100px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@keyframes ws-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+.ws-sync-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #22c55e;
+  margin-left: auto;
+  animation: ws-pulse 2s ease-in-out infinite;
+  flex-shrink: 0;
+}
+
 /* ─── Filter bar ─── */
 
 .filter-bar {
