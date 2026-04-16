@@ -17,7 +17,7 @@ from database import init_db, get_db, add_suburb, remove_suburb, get_suburbs, ge
 from database import upsert_listing, mark_withdrawn, create_scrape_log, update_scrape_log, get_scrape_logs
 from database import get_existing_urls, trim_sold_listings, cleanup_agent_entries, restore_false_withdrawn
 from database import backup_db, get_price_changes, take_market_snapshot, get_market_snapshots
-from scraper import scrape_suburb, debug_page
+from scraper import scrape_suburb, debug_page, compare_suburb
 
 app = Flask(__name__)
 CORS(app)
@@ -665,6 +665,26 @@ def debug_scrape(suburb_id):
     if not suburb:
         return jsonify({'error': 'Suburb not found'}), 404
     result = debug_page(suburb['slug'])
+    return jsonify(result)
+
+
+@app.route('/api/scrape/compare/<int:suburb_id>', methods=['GET'])
+def compare_scrape(suburb_id):
+    """Compare REIWA's live listings vs our DB for a suburb."""
+    conn = get_db()
+    suburb = conn.execute("SELECT * FROM suburbs WHERE id = ?", (suburb_id,)).fetchone()
+    if not suburb:
+        conn.close()
+        return jsonify({'error': 'Suburb not found'}), 404
+    # Get all active/under_offer URLs from DB
+    rows = conn.execute(
+        "SELECT reiwa_url FROM listings WHERE suburb_id = ? AND status IN ('active', 'under_offer')",
+        (suburb_id,)
+    ).fetchall()
+    conn.close()
+    db_urls = {r['reiwa_url'] for r in rows if r['reiwa_url']}
+    result = compare_suburb(suburb['slug'], db_urls)
+    result['suburb'] = suburb['name']
     return jsonify(result)
 
 

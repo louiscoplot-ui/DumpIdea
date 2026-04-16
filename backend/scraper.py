@@ -405,6 +405,24 @@ def _count_cards(page):
     return page.evaluate("""() => document.querySelectorAll('[class*="p-card"]').length""")
 
 
+def _extract_all_listing_urls_js(page):
+    """Extract ALL listing URLs directly from the live DOM via JavaScript.
+    More reliable than BeautifulSoup for dynamically loaded content."""
+    return page.evaluate("""() => {
+        const urls = new Set();
+        const exclude = ['/real-estate-agent/', '/agency/', '/suburb/', '/news/', '/advice/'];
+        document.querySelectorAll('a[href]').forEach(a => {
+            let href = a.href || a.getAttribute('href');
+            if (!href) return;
+            if (href.startsWith('/')) href = 'https://reiwa.com.au' + href;
+            if (!href.includes('reiwa.com.au')) return;
+            if (exclude.some(x => href.includes(x))) return;
+            if (/-\\d{5,8}\\/?$/.test(href)) urls.add(href.replace(/\\/$/, ''));
+        });
+        return [...urls];
+    }""")
+
+
 def _load_listing_page(page, url, retries=3):
     """Load a REIWA listing page, wait for cards, scroll repeatedly to load all."""
     for attempt in range(1, retries + 1):
@@ -549,7 +567,14 @@ def scrape_suburb(suburb_slug, suburb_id, progress_callback=None, known_urls=Non
                         filtered_cards.append(card)
                 cards = filtered_cards
 
-                # Also scan for listing links NOT inside any p-card (featured/promoted)
+                # Extract ALL listing URLs from the live DOM via JS (catches dynamically loaded content)
+                js_urls = set()
+                try:
+                    js_urls = set(u.rstrip('/') for u in _extract_all_listing_urls_js(listing_page))
+                except Exception:
+                    pass
+
+                # Also scan BS4 for listing links NOT inside any p-card (featured/promoted)
                 EXCLUDE = ["/real-estate-agent/", "/agency/", "/suburb/", "/news/", "/advice/"]
                 page_link_urls = set()
                 for a_tag in soup.find_all("a", href=True):
@@ -563,6 +588,17 @@ def scrape_suburb(suburb_slug, suburb_id, progress_callback=None, known_urls=Non
                     parent_card = a_tag.find_parent(True, class_=lambda c: c and "p-card" in c)
                     if parent_card is None:
                         page_link_urls.add(full_url)
+
+                # Merge JS-discovered URLs into page_link_urls (JS catches things BS4 might miss)
+                card_urls_on_page = set()
+                for card in cards:
+                    for a in card.find_all("a", href=True):
+                        href = a["href"]
+                        full = ("https://reiwa.com.au" + href) if href.startswith("/") else href
+                        card_urls_on_page.add(full.rstrip('/'))
+                for js_url in js_urls:
+                    if js_url not in card_urls_on_page:
+                        page_link_urls.add(js_url)
 
                 # On first page, grab REIWA's total count for comparison
                 if page_num == 1:
@@ -828,6 +864,88 @@ def debug_page(suburb_slug):
             result['text_preview'] = soup.get_text(" ", strip=True)[:3000]
 
             browser.close()
+    except Exception as e:
+        result['error'] = str(e)
+
+    return result
+
+
+def compare_suburb(suburb_slug, db_urls):
+    """Compare what REIWA shows vs what we have in DB.
+    Returns detailed diff: missing from DB, extra in DB, and total counts."""
+    suburb_name = suburb_slug.replace("-", " ").title()
+    result = {
+        'reiwa_total': None,
+        'reiwa_urls': [],
+        'db_urls_count': len(db_urls),
+        'missing_from_db': [],   # on REIWA but not in our DB
+        'extra_in_db': [],       # in our DB but not on REIWA
+        'matched': 0,
+        'pages_scraped': 0,
+        'error': None,
+    }
+
+    try:
+        with sync_playwright() as p:
+            launch_opts = {'headless': True, 'args': ['--no-sandbox', '--disable-setuid-sandbox']}
+            if CHROMIUM_PATH:
+                launch_opts['executable_path'] = CHROMIUM_PATH
+            browser = p.chromium.launch(**launch_opts)
+            context = browser.new_context(user_agent=UA, viewport={'width': 1280, 'height': 800}, locale='en-AU')
+            page = context.new_page()
+
+            all_reiwa_urls = set()
+            page_num = 1
+
+            while page_num <= MAX_PAGES:
+                url = _build_url(suburb_slug, page_num)
+                if not _load_listing_page(page, url):
+                    break
+
+                html = page.content()
+                soup = BeautifulSoup(html, "html.parser")
+
+                # Get REIWA's stated total on page 1
+                if page_num == 1:
+                    result['reiwa_total'] = _get_reiwa_total(soup)
+
+                # Method 1: extract URLs from live DOM via JS
+                js_urls = _extract_all_listing_urls_js(page)
+                before = len(all_reiwa_urls)
+                for u in js_urls:
+                    all_reiwa_urls.add(u.rstrip('/'))
+
+                # Method 2: extract from BeautifulSoup as backup
+                EXCLUDE = ["/real-estate-agent/", "/agency/", "/suburb/", "/news/", "/advice/"]
+                for a_tag in soup.find_all("a", href=True):
+                    href = a_tag["href"]
+                    if not re.search(r"-\d{5,8}/?$", href):
+                        continue
+                    if any(x in href for x in EXCLUDE):
+                        continue
+                    full = ("https://reiwa.com.au" + href) if href.startswith("/") else href
+                    all_reiwa_urls.add(full.rstrip('/'))
+
+                new_found = len(all_reiwa_urls) - before
+                result['pages_scraped'] = page_num
+
+                if new_found == 0 and page_num > 1:
+                    break
+
+                page_num += 1
+                time.sleep(0.5)
+
+            browser.close()
+
+            # Normalize all URLs for comparison
+            reiwa_set = {u.rstrip('/') for u in all_reiwa_urls}
+            db_set = {u.rstrip('/') for u in db_urls}
+
+            result['reiwa_urls'] = sorted(reiwa_set)
+            result['missing_from_db'] = sorted(reiwa_set - db_set)
+            result['extra_in_db'] = sorted(db_set - reiwa_set)
+            result['matched'] = len(reiwa_set & db_set)
+
     except Exception as e:
         result['error'] = str(e)
 
