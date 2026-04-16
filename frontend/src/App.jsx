@@ -695,6 +695,155 @@ function App() {
               </div>
 
               <div className="report-tables">
+                {/* Market Share */}
+                {(report.market_share || []).length > 0 && (
+                  <div className="report-table-section">
+                    <h3>Market Share (Active Listings)</h3>
+                    <div className="market-share-bars">
+                      {report.market_share.slice(0, 10).map((ms, i) => (
+                        <div key={ms.agency} className="share-row">
+                          <span className="share-name">{ms.agency}</span>
+                          <div className="share-bar-bg">
+                            <div
+                              className="share-bar-fill"
+                              style={{ width: `${ms.pct}%`, opacity: 1 - (i * 0.06) }}
+                            />
+                          </div>
+                          <span className="share-val">{ms.count} ({ms.pct}%)</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Market Share by Suburb */}
+                {report.suburb_market_share && Object.keys(report.suburb_market_share).length > 1 && (
+                  <div className="report-table-section">
+                    <h3>Market Share by Suburb</h3>
+                    {Object.entries(report.suburb_market_share).map(([suburb, agencies]) => (
+                      <div key={suburb} className="suburb-share-block">
+                        <h4>{suburb}</h4>
+                        <div className="market-share-bars compact">
+                          {agencies.slice(0, 5).map((ms, i) => (
+                            <div key={ms.agency} className="share-row">
+                              <span className="share-name">{ms.agency}</span>
+                              <div className="share-bar-bg">
+                                <div
+                                  className="share-bar-fill"
+                                  style={{ width: `${ms.pct}%`, opacity: 1 - (i * 0.08) }}
+                                />
+                              </div>
+                              <span className="share-val">{ms.count} ({ms.pct}%)</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Price Drops */}
+                {(report.price_drops || []).length > 0 && (
+                  <div className="report-table-section">
+                    <h3>Price Changes — Motivated Sellers</h3>
+                    <table>
+                      <thead><tr><th>Address</th><th>Suburb</th><th>Old Price</th><th>New Price</th><th>Drop</th><th>Agent</th><th>Agency</th><th>Link</th></tr></thead>
+                      <tbody>
+                        {report.price_drops.map((pd, i) => (
+                          <tr key={i} className={pd.drop_amount ? 'price-drop-row' : ''}>
+                            <td>{pd.address}</td>
+                            <td>{pd.suburb}</td>
+                            <td className="price-cell old-price">{pd.old_price || '-'}</td>
+                            <td className="price-cell">{pd.new_price || '-'}</td>
+                            <td className="num">
+                              {pd.drop_amount
+                                ? <span className="price-drop-badge">-${pd.drop_amount.toLocaleString()} ({pd.drop_pct}%)</span>
+                                : <span className="price-change-badge">Changed</span>
+                              }
+                            </td>
+                            <td>{pd.agent || '-'}</td>
+                            <td>{pd.agency || '-'}</td>
+                            <td className="link-cell">{pd.reiwa_url ? <a href={pd.reiwa_url} target="_blank" rel="noopener">View</a> : '-'}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+
+                {/* Historical Trends */}
+                {(report.snapshots || []).length > 0 && (() => {
+                  const dates = [...new Set(report.snapshots.map(s => s.snapshot_date))].sort()
+                  const latestDate = dates[dates.length - 1]
+                  const prevDate = dates.length > 1 ? dates[dates.length - 2] : null
+                  const latest = report.snapshots.filter(s => s.snapshot_date === latestDate)
+                  const prev = prevDate ? report.snapshots.filter(s => s.snapshot_date === prevDate) : []
+                  const sumField = (arr, f) => arr.reduce((s, x) => s + (x[f] || 0), 0)
+                  const latestActive = sumField(latest, 'active_count')
+                  const prevActive = prev.length > 0 ? sumField(prev, 'active_count') : null
+                  const latestUO = sumField(latest, 'under_offer_count')
+                  const prevUO = prev.length > 0 ? sumField(prev, 'under_offer_count') : null
+                  const medians = latest.map(s => s.median_price).filter(Boolean)
+                  const latestMedian = medians.length > 0 ? Math.round(medians.reduce((a,b) => a+b, 0) / medians.length) : null
+                  const prevMedians = prev.map(s => s.median_price).filter(Boolean)
+                  const prevMedian = prevMedians.length > 0 ? Math.round(prevMedians.reduce((a,b) => a+b, 0) / prevMedians.length) : null
+                  const delta = (cur, prv) => {
+                    if (prv === null || prv === undefined) return null
+                    const d = cur - prv
+                    if (d === 0) return '='
+                    return d > 0 ? `+${d}` : `${d}`
+                  }
+                  return (
+                    <div className="report-table-section">
+                      <h3>Market Trends</h3>
+                      <p className="trend-subtitle">{dates.length} snapshot{dates.length > 1 ? 's' : ''} recorded (latest: {latestDate})</p>
+                      <div className="trend-cards">
+                        <div className="trend-card">
+                          <span className="trend-val">{latestActive}</span>
+                          <span className="trend-label">Active Listings</span>
+                          {prevActive !== null && <span className={`trend-delta ${latestActive > prevActive ? 'up' : latestActive < prevActive ? 'down' : ''}`}>{delta(latestActive, prevActive)} vs prev</span>}
+                        </div>
+                        <div className="trend-card">
+                          <span className="trend-val">{latestUO}</span>
+                          <span className="trend-label">Under Offer</span>
+                          {prevUO !== null && <span className={`trend-delta ${latestUO > prevUO ? 'up' : latestUO < prevUO ? 'down' : ''}`}>{delta(latestUO, prevUO)} vs prev</span>}
+                        </div>
+                        {latestMedian && (
+                          <div className="trend-card">
+                            <span className="trend-val">${latestMedian.toLocaleString()}</span>
+                            <span className="trend-label">Median Price</span>
+                            {prevMedian && <span className={`trend-delta ${latestMedian > prevMedian ? 'up' : latestMedian < prevMedian ? 'down' : ''}`}>{latestMedian > prevMedian ? '+' : ''}{((latestMedian - prevMedian) / prevMedian * 100).toFixed(1)}% vs prev</span>}
+                          </div>
+                        )}
+                      </div>
+                      {dates.length > 1 && (
+                        <table className="snapshot-table">
+                          <thead>
+                            <tr><th>Date</th><th>Active</th><th>Under Offer</th><th>Sold</th><th>Withdrawn</th><th>New</th><th>Median Price</th><th>Avg DOM</th></tr>
+                          </thead>
+                          <tbody>
+                            {dates.slice().reverse().map(date => {
+                              const snaps = report.snapshots.filter(s => s.snapshot_date === date)
+                              return (
+                                <tr key={date}>
+                                  <td>{date}</td>
+                                  <td className="num">{sumField(snaps, 'active_count')}</td>
+                                  <td className="num">{sumField(snaps, 'under_offer_count')}</td>
+                                  <td className="num">{sumField(snaps, 'sold_count')}</td>
+                                  <td className="num">{sumField(snaps, 'withdrawn_count')}</td>
+                                  <td className="num">{sumField(snaps, 'new_count')}</td>
+                                  <td className="num">{(() => { const ps = snaps.map(s => s.median_price).filter(Boolean); return ps.length ? `$${Math.round(ps.reduce((a,b)=>a+b,0)/ps.length).toLocaleString()}` : '-' })()}</td>
+                                  <td className="num">{(() => { const ds = snaps.map(s => s.avg_dom).filter(Boolean); return ds.length ? Math.round(ds.reduce((a,b)=>a+b,0)/ds.length) : '-' })()}</td>
+                                </tr>
+                              )
+                            })}
+                          </tbody>
+                        </table>
+                      )}
+                    </div>
+                  )
+                })()}
+
                 <div className="report-table-section">
                   <h3>Top Agencies</h3>
                   <table>

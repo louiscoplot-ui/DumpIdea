@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 from database import init_db, get_db, add_suburb, remove_suburb, get_suburbs, get_listings
 from database import upsert_listing, mark_withdrawn, create_scrape_log, update_scrape_log, get_scrape_logs
 from database import get_existing_urls, trim_sold_listings, cleanup_agent_entries, restore_false_withdrawn
-from database import backup_db
+from database import backup_db, get_price_changes, take_market_snapshot, get_market_snapshots
 from scraper import scrape_suburb, debug_page
 
 app = Flask(__name__)
@@ -192,6 +192,63 @@ def market_report():
         t = l.get('listing_type') or 'Unknown'
         type_stats[t] = type_stats.get(t, 0) + 1
 
+    # Market share: percentage of active listings per agency
+    total_active = len(active)
+    market_share = []
+    if total_active > 0:
+        agency_active = {}
+        for l in active:
+            a = l.get('agency') or 'Unknown'
+            agency_active[a] = agency_active.get(a, 0) + 1
+        market_share = sorted([
+            {'agency': name, 'count': count, 'pct': round(count / total_active * 100, 1)}
+            for name, count in agency_active.items()
+        ], key=lambda x: x['count'], reverse=True)
+
+    # Market share by suburb (for multi-suburb view)
+    suburb_market_share = {}
+    for l in active:
+        sn = l.get('suburb_name', 'Unknown')
+        a = l.get('agency') or 'Unknown'
+        if sn not in suburb_market_share:
+            suburb_market_share[sn] = {}
+        suburb_market_share[sn][a] = suburb_market_share[sn].get(a, 0) + 1
+
+    for sn in suburb_market_share:
+        total_in_suburb = sum(suburb_market_share[sn].values())
+        suburb_market_share[sn] = sorted([
+            {'agency': name, 'count': count, 'pct': round(count / total_in_suburb * 100, 1)}
+            for name, count in suburb_market_share[sn].items()
+        ], key=lambda x: x['count'], reverse=True)
+
+    # Price changes
+    price_changes = get_price_changes(suburb_ids=suburb_ids, limit=30)
+    price_drops = []
+    for pc in price_changes:
+        old_p = parse_price(pc.get('old_price'))
+        new_p = parse_price(pc.get('new_price'))
+        drop_amount = None
+        drop_pct = None
+        if old_p and new_p and new_p < old_p:
+            drop_amount = old_p - new_p
+            drop_pct = round((drop_amount / old_p) * 100, 1)
+        price_drops.append({
+            'address': pc.get('address'),
+            'suburb': pc.get('suburb_name'),
+            'old_price': pc.get('old_price'),
+            'new_price': pc.get('new_price'),
+            'drop_amount': drop_amount,
+            'drop_pct': drop_pct,
+            'changed_at': pc.get('changed_at'),
+            'agent': pc.get('agent'),
+            'agency': pc.get('agency'),
+            'status': pc.get('status'),
+            'reiwa_url': pc.get('reiwa_url'),
+        })
+
+    # Historical snapshots
+    snapshots = get_market_snapshots(suburb_ids=suburb_ids, limit=90)
+
     report = {
         'generated_at': datetime.utcnow().isoformat(),
         'total_listings': len(listings),
@@ -216,6 +273,10 @@ def market_report():
             'avg': round(sum(doms) / len(doms)) if doms else None,
             'stale_count': len(stale),
         },
+        'market_share': market_share,
+        'suburb_market_share': suburb_market_share,
+        'price_drops': price_drops,
+        'snapshots': snapshots,
         'stale_listings': [{
             'address': l.get('address'),
             'suburb': l.get('suburb_name'),
@@ -757,6 +818,65 @@ def _run_scrape(suburb_id, slug, name):
             withdrawn_count=withdrawn_count,
             errors=json.dumps(result['errors']) if result['errors'] else None
         )
+
+        # Take market snapshot for historical tracking
+        try:
+            import re as _re
+            snap_conn = get_db()
+            snap_rows = snap_conn.execute(
+                "SELECT status, price_text, listing_date, first_seen FROM listings WHERE suburb_id = ?",
+                (suburb_id,)
+            ).fetchall()
+            snap_conn.close()
+
+            snap_active = [r for r in snap_rows if r['status'] == 'active']
+            snap_uo = [r for r in snap_rows if r['status'] == 'under_offer']
+            snap_sold = [r for r in snap_rows if r['status'] == 'sold']
+            snap_wd = [r for r in snap_rows if r['status'] == 'withdrawn']
+
+            # Median price
+            snap_prices = []
+            for r in snap_active:
+                pt = r['price_text']
+                if pt:
+                    m = _re.search(r'\$([\d,]+)', pt.replace(' ', ''))
+                    if m:
+                        try:
+                            p = int(m.group(1).replace(',', ''))
+                            if p >= 100000:
+                                snap_prices.append(p)
+                        except ValueError:
+                            pass
+            snap_prices.sort()
+            median_p = snap_prices[len(snap_prices)//2] if snap_prices else None
+
+            # Avg DOM
+            snap_doms = []
+            for r in snap_active:
+                ds = r['listing_date'] or r['first_seen'] or ''
+                dm = _re.match(r'^(\d{1,2})/(\d{1,2})/(\d{4})$', ds)
+                try:
+                    if dm:
+                        start = datetime(int(dm.group(3)), int(dm.group(2)), int(dm.group(1)))
+                    else:
+                        start = datetime.fromisoformat(ds.replace('Z', ''))
+                    snap_doms.append(max(0, (datetime.utcnow() - start).days))
+                except (ValueError, TypeError):
+                    pass
+            avg_d = round(sum(snap_doms) / len(snap_doms)) if snap_doms else None
+
+            take_market_snapshot(suburb_id, {
+                'active': len(snap_active),
+                'under_offer': len(snap_uo),
+                'sold': len(snap_sold),
+                'withdrawn': len(snap_wd),
+                'new': new_count,
+                'median_price': median_p,
+                'avg_dom': avg_d,
+            })
+            logger.info(f"[{name}] Market snapshot saved")
+        except Exception as snap_err:
+            logger.warning(f"[{name}] Failed to save snapshot: {snap_err}")
 
         scrape_jobs[suburb_id] = {
             'status': 'completed',

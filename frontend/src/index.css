@@ -895,3 +895,168 @@ tr.status-withdrawn { border-left: 3px solid var(--withdrawn); }
 .withdrawn-row {
   background: rgba(239, 68, 68, 0.08) !important;
 }
+
+/* Market Share Bars */
+.market-share-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 4px 0;
+}
+
+.market-share-bars.compact {
+  gap: 5px;
+  margin-bottom: 16px;
+}
+
+.share-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.share-name {
+  width: 200px;
+  min-width: 200px;
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.compact .share-name {
+  width: 160px;
+  min-width: 160px;
+  font-size: 12px;
+}
+
+.share-bar-bg {
+  flex: 1;
+  height: 20px;
+  background: var(--bg);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.compact .share-bar-bg {
+  height: 16px;
+}
+
+.share-bar-fill {
+  height: 100%;
+  background: var(--primary);
+  border-radius: 4px;
+  min-width: 2px;
+  transition: width 0.3s ease;
+}
+
+.share-val {
+  font-size: 12px;
+  color: var(--text-muted);
+  width: 100px;
+  min-width: 100px;
+  text-align: right;
+  font-weight: 600;
+}
+
+.compact .share-val {
+  width: 80px;
+  min-width: 80px;
+  font-size: 11px;
+}
+
+.suburb-share-block h4 {
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 6px;
+  color: var(--text);
+}
+
+/* Price Drops */
+.price-drop-row {
+  background: rgba(245, 158, 11, 0.06) !important;
+}
+
+.old-price {
+  text-decoration: line-through;
+  color: var(--text-muted) !important;
+}
+
+.price-drop-badge {
+  display: inline-block;
+  background: rgba(239, 68, 68, 0.15);
+  color: var(--danger);
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.price-change-badge {
+  display: inline-block;
+  background: rgba(245, 158, 11, 0.15);
+  color: var(--under-offer);
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+/* Market Trends */
+.trend-subtitle {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-bottom: 12px;
+}
+
+.trend-cards {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.trend-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px 20px;
+  display: flex;
+  flex-direction: column;
+  min-width: 150px;
+}
+
+.trend-val {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.trend-label {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.trend-delta {
+  font-size: 12px;
+  font-weight: 600;
+  margin-top: 4px;
+  color: var(--text-muted);
+}
+
+.trend-delta.up {
+  color: var(--active);
+}
+
+.trend-delta.down {
+  color: var(--danger);
+}
+
+.snapshot-table {
+  margin-top: 8px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}

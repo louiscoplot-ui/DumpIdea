@@ -133,6 +133,39 @@ def init_db():
         conn.execute("ALTER TABLE listings ADD COLUMN source TEXT DEFAULT 'reiwa'")
     except Exception:
         pass  # column already exists
+
+    # Price history tracking
+    conn.executescript("""
+        CREATE TABLE IF NOT EXISTS price_history (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            listing_id INTEGER NOT NULL,
+            old_price TEXT,
+            new_price TEXT,
+            changed_at TEXT NOT NULL DEFAULT (datetime('now')),
+            FOREIGN KEY (listing_id) REFERENCES listings(id) ON DELETE CASCADE
+        );
+        CREATE INDEX IF NOT EXISTS idx_price_history_listing
+            ON price_history(listing_id);
+        CREATE INDEX IF NOT EXISTS idx_price_history_date
+            ON price_history(changed_at);
+
+        CREATE TABLE IF NOT EXISTS market_snapshots (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            suburb_id INTEGER NOT NULL,
+            snapshot_date TEXT NOT NULL,
+            active_count INTEGER DEFAULT 0,
+            under_offer_count INTEGER DEFAULT 0,
+            sold_count INTEGER DEFAULT 0,
+            withdrawn_count INTEGER DEFAULT 0,
+            new_count INTEGER DEFAULT 0,
+            median_price INTEGER,
+            avg_dom INTEGER,
+            FOREIGN KEY (suburb_id) REFERENCES suburbs(id) ON DELETE CASCADE
+        );
+        CREATE INDEX IF NOT EXISTS idx_snapshots_suburb_date
+            ON market_snapshots(suburb_id, snapshot_date);
+    """)
+
     conn.commit()
     conn.close()
 
@@ -213,6 +246,15 @@ def upsert_listing(suburb_id, reiwa_url, data):
     ).fetchone()
 
     if existing:
+        # Detect price change
+        new_price = data.get('price_text')
+        old_price = existing['price_text']
+        if new_price and old_price and new_price != old_price:
+            conn.execute(
+                "INSERT INTO price_history (listing_id, old_price, new_price) VALUES (?, ?, ?)",
+                (existing['id'], old_price, new_price)
+            )
+
         conn.execute("""
             UPDATE listings SET
                 address = COALESCE(?, address),
@@ -386,6 +428,73 @@ def get_scrape_logs(suburb_id=None, limit=20):
         query += " WHERE sl.suburb_id = ?"
         params.append(suburb_id)
     query += " ORDER BY sl.started_at DESC LIMIT ?"
+    params.append(limit)
+    rows = conn.execute(query, params).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+def get_price_changes(suburb_ids=None, limit=50):
+    """Get recent price changes with listing details."""
+    conn = get_db()
+    query = """
+        SELECT ph.*, l.address, l.reiwa_url, l.agent, l.agency, l.status, l.listing_date,
+               s.name as suburb_name
+        FROM price_history ph
+        JOIN listings l ON ph.listing_id = l.id
+        JOIN suburbs s ON l.suburb_id = s.id
+    """
+    params = []
+    if suburb_ids:
+        placeholders = ','.join('?' * len(suburb_ids))
+        query += f" WHERE l.suburb_id IN ({placeholders})"
+        params.extend(suburb_ids)
+    query += " ORDER BY ph.changed_at DESC LIMIT ?"
+    params.append(limit)
+    rows = conn.execute(query, params).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+def take_market_snapshot(suburb_id, stats):
+    """Record a market snapshot after scraping a suburb."""
+    conn = get_db()
+    today = datetime.utcnow().strftime('%Y-%m-%d')
+    # Replace any existing snapshot for same suburb+date
+    conn.execute(
+        "DELETE FROM market_snapshots WHERE suburb_id = ? AND snapshot_date = ?",
+        (suburb_id, today)
+    )
+    conn.execute("""
+        INSERT INTO market_snapshots
+            (suburb_id, snapshot_date, active_count, under_offer_count,
+             sold_count, withdrawn_count, new_count, median_price, avg_dom)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """, (
+        suburb_id, today,
+        stats.get('active', 0), stats.get('under_offer', 0),
+        stats.get('sold', 0), stats.get('withdrawn', 0),
+        stats.get('new', 0), stats.get('median_price'),
+        stats.get('avg_dom'),
+    ))
+    conn.commit()
+    conn.close()
+
+
+def get_market_snapshots(suburb_ids=None, limit=90):
+    """Get historical market snapshots, last N days."""
+    conn = get_db()
+    query = """
+        SELECT ms.*, s.name as suburb_name
+        FROM market_snapshots ms
+        JOIN suburbs s ON ms.suburb_id = s.id
+    """
+    params = []
+    if suburb_ids:
+        placeholders = ','.join('?' * len(suburb_ids))
+        query += f" WHERE ms.suburb_id IN ({placeholders})"
+        params.extend(suburb_ids)
+    query += " ORDER BY ms.snapshot_date DESC LIMIT ?"
     params.append(limit)
     rows = conn.execute(query, params).fetchall()
     conn.close()
