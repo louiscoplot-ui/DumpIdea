@@ -584,21 +584,9 @@ def scrape_suburb(suburb_slug, suburb_id, progress_callback=None, known_urls=Non
                     if any(x in href for x in EXCLUDE):
                         continue
                     full_url = ("https://reiwa.com.au" + href) if href.startswith("/") else href
-                    # Check if this link is already inside a p-card
                     parent_card = a_tag.find_parent(True, class_=lambda c: c and "p-card" in c)
                     if parent_card is None:
                         page_link_urls.add(full_url)
-
-                # Merge JS-discovered URLs into page_link_urls (JS catches things BS4 might miss)
-                card_urls_on_page = set()
-                for card in cards:
-                    for a in card.find_all("a", href=True):
-                        href = a["href"]
-                        full = ("https://reiwa.com.au" + href) if href.startswith("/") else href
-                        card_urls_on_page.add(full.rstrip('/'))
-                for js_url in js_urls:
-                    if js_url not in card_urls_on_page:
-                        page_link_urls.add(js_url)
 
                 # On first page, grab REIWA's total count for comparison
                 if page_num == 1:
@@ -631,7 +619,7 @@ def scrape_suburb(suburb_slug, suburb_id, progress_callback=None, known_urls=Non
                     if card_url in seen_urls:
                         continue
 
-                    seen_urls.add(card_url)
+                    seen_urls.add(card_url.rstrip('/'))
                     new_on_page += 1
                     page_listings.append(rec)
 
@@ -640,9 +628,9 @@ def scrape_suburb(suburb_slug, suburb_id, progress_callback=None, known_urls=Non
 
                 # Add orphan listing links (not inside any p-card - e.g. featured/promoted)
                 for orphan_url in page_link_urls:
-                    if orphan_url in seen_urls:
+                    if orphan_url.rstrip('/') in seen_urls:
                         continue
-                    seen_urls.add(orphan_url)
+                    seen_urls.add(orphan_url.rstrip('/'))
                     new_on_page += 1
                     rec = {
                         "url": orphan_url,
@@ -653,7 +641,6 @@ def scrape_suburb(suburb_slug, suburb_id, progress_callback=None, known_urls=Non
                         "agency": "", "agent": "", "status": "active",
                         "listing_date": "",
                     }
-                    # Try to extract address from link text
                     for a_tag in soup.find_all("a", href=True):
                         full = ("https://reiwa.com.au" + a_tag["href"]) if a_tag["href"].startswith("/") else a_tag["href"]
                         if full == orphan_url:
@@ -663,6 +650,28 @@ def scrape_suburb(suburb_slug, suburb_id, progress_callback=None, known_urls=Non
                                 break
                     page_listings.append(rec)
                     logger.info(f"{suburb_name} p{page_num}: found orphan listing link: {orphan_url}")
+
+                # Final safety net: any JS-discovered URL not yet captured gets added
+                for js_url in js_urls:
+                    normalized = js_url.rstrip('/')
+                    if normalized in seen_urls:
+                        continue
+                    # Also check with trailing slash variant
+                    if normalized + '/' in seen_urls:
+                        continue
+                    seen_urls.add(normalized)
+                    new_on_page += 1
+                    rec = {
+                        "url": normalized,
+                        "address": "Address not disclosed",
+                        "price_text": "", "listing_type": "",
+                        "bedrooms": None, "bathrooms": None, "parking": None,
+                        "land_size": "", "internal_size": "",
+                        "agency": "", "agent": "", "status": "active",
+                        "listing_date": "",
+                    }
+                    page_listings.append(rec)
+                    logger.info(f"{suburb_name} p{page_num}: JS rescued missed listing: {normalized}")
 
                 # Split into new vs known listings
                 new_listings = []
