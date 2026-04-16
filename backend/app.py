@@ -543,8 +543,8 @@ def get_workspaces():
             w["is_owner"] = w["owner_id"] == user_id
             # Get members
             cur.execute("""
-                SELECT user_name, user_picture, status FROM workspace_members
-                WHERE workspace_id = %s
+                SELECT user_name, user_picture, user_email, status FROM workspace_members
+                WHERE workspace_id = %s AND status = 'active'
             """, (w["id"],))
             w["members"] = [dict(r) for r in cur.fetchall()]
             result.append(w)
@@ -801,6 +801,15 @@ def get_items():
     conn = get_db()
     cur = conn.cursor()
     if workspace_id:
+        # Verify user is a member or owner of this workspace
+        cur.execute("""
+            SELECT 1 FROM workspaces WHERE id = %s AND owner_id = %s
+            UNION
+            SELECT 1 FROM workspace_members WHERE workspace_id = %s AND user_id = %s AND status = 'active'
+        """, (workspace_id, user_id, workspace_id, user_id))
+        if not cur.fetchone():
+            cur.close(); conn.close()
+            return jsonify({"error": "Forbidden"}), 403
         cur.execute("SELECT * FROM items WHERE workspace_id = %s ORDER BY created_at DESC", (workspace_id,))
     else:
         cur.execute("SELECT * FROM items WHERE user_id = %s AND (workspace_id IS NULL OR workspace_id = '') ORDER BY created_at DESC", (user_id,))

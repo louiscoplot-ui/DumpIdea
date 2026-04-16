@@ -1014,16 +1014,31 @@ export default function App() {
               {workspaces.map(ws => (
                 <div key={ws.id} className={`ws-option${workspaceId === ws.id ? " active" : ""}`}
                   onClick={() => { setWorkspaceId(ws.id); setWsOpen(false); setItems([]); }}>
-                  👥 {ws.name}
-                  <div className="ws-actions" onClick={e => e.stopPropagation()}>
-                    {ws.is_owner
-                      ? <>
-                          <button className="ws-action-btn" title="Inviter" onClick={() => { generateInvite(ws.id); setWsOpen(false); }}>🔗</button>
-                          <button className="ws-action-btn" title="Supprimer le groupe" onClick={() => deleteWorkspace(ws.id)}>🗑</button>
-                        </>
-                      : <button className="ws-action-btn" title="Quitter le groupe" onClick={() => leaveWorkspace(ws.id)}>🚪</button>
-                    }
+                  <div className="ws-option-top">
+                    <span>👥 {ws.name}</span>
+                    <div className="ws-actions" onClick={e => e.stopPropagation()}>
+                      {ws.is_owner
+                        ? <>
+                            <button className="ws-action-btn" title="Inviter" onClick={() => { generateInvite(ws.id); setWsOpen(false); }}>🔗</button>
+                            <button className="ws-action-btn" title="Supprimer le groupe" onClick={() => deleteWorkspace(ws.id)}>🗑</button>
+                          </>
+                        : <button className="ws-action-btn" title="Quitter le groupe" onClick={() => leaveWorkspace(ws.id)}>🚪</button>
+                      }
+                    </div>
                   </div>
+                  {ws.members && ws.members.length > 0 && (
+                    <div className="ws-members-list" onClick={e => e.stopPropagation()}>
+                      {ws.members.filter(m => m.status === "active").map((m, i) => (
+                        <span key={i} className="ws-member-chip" title={m.user_name || "Membre"}>
+                          {m.user_picture
+                            ? <img src={m.user_picture} alt={m.user_name} className="ws-member-avatar" />
+                            : <span className="ws-member-initial">{(m.user_name || "?")[0].toUpperCase()}</span>
+                          }
+                          <span className="ws-member-name">{m.user_name || "Membre"}</span>
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </div>
               ))}
               <div className="ws-divider" />
