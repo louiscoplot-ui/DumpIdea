@@ -798,8 +798,11 @@ def _run_scrape(suburb_id, slug, name):
             saved_sold += 1
 
         # Mark withdrawn — by URL, not address
+        # If we scraped at least as many as REIWA's stated total, we're confident we got everything
         progress_cb('Checking for withdrawn listings...')
-        withdrawn_count = mark_withdrawn(suburb_id, forsale_urls, sold_urls)
+        reiwa_total = result['stats'].get('reiwa_total', 0)
+        confident = reiwa_total > 0 and len(forsale_urls) >= reiwa_total
+        withdrawn_count = mark_withdrawn(suburb_id, forsale_urls, sold_urls, confident=confident)
 
         # Keep only 40 most recent sold listings
         trimmed = trim_sold_listings(suburb_id, keep=40)
@@ -904,7 +907,4 @@ if __name__ == '__main__':
     cleaned = cleanup_agent_entries()
     if cleaned:
         logger.info(f"Cleaned up {cleaned} agent profile entries from DB")
-    restored = restore_false_withdrawn()
-    if restored:
-        logger.info(f"Restored {restored} falsely withdrawn listings from last 24h")
     app.run(host='0.0.0.0', port=5000, debug=True)

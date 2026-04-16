@@ -415,24 +415,30 @@ def _load_listing_page(page, url, retries=3):
             except Exception:
                 pass
 
-            # Scroll incrementally, checking if new cards appear
+            # Scroll incrementally until no new cards appear
             prev_count = 0
-            for scroll_round in range(5):
-                page.evaluate("window.scrollBy(0, window.innerHeight)")
-                page.wait_for_timeout(500)
+            no_change_rounds = 0
+            for scroll_round in range(12):
+                page.evaluate("window.scrollBy(0, window.innerHeight * 1.5)")
+                page.wait_for_timeout(600)
                 cur_count = _count_cards(page)
                 if cur_count > prev_count:
                     prev_count = cur_count
+                    no_change_rounds = 0
+                else:
+                    no_change_rounds += 1
+                    if no_change_rounds >= 3:
+                        break  # 3 scrolls with no new cards = done
 
             # Final scroll to absolute bottom + extra wait
             page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
-            page.wait_for_timeout(1200)
+            page.wait_for_timeout(1500)
 
-            # If new cards appeared, scroll once more
+            # If new cards appeared after final scroll, wait more
             final_count = _count_cards(page)
             if final_count > prev_count:
                 page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
-                page.wait_for_timeout(800)
+                page.wait_for_timeout(1200)
 
             # Click any "Load More" / "Show All" buttons
             try:

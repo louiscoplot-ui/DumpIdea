@@ -314,12 +314,12 @@ def upsert_listing(suburb_id, reiwa_url, data):
         return 'new'
 
 
-def mark_withdrawn(suburb_id, seen_urls, sold_urls):
+def mark_withdrawn(suburb_id, seen_urls, sold_urls, confident=False):
     """Mark listings as withdrawn if their URL disappeared from for-sale and isn't in sold.
 
     Safety check: only mark withdrawn if we scraped at least 70% of known active listings.
-    If the scrape captured way fewer than expected, something went wrong and we shouldn't
-    mark anything as withdrawn.
+    If confident=True (we matched REIWA's stated total), skip the safety check and trust
+    the scrape was complete.
     """
     conn = get_db()
     now = datetime.utcnow().isoformat()
@@ -335,19 +335,18 @@ def mark_withdrawn(suburb_id, seen_urls, sold_urls):
 
     all_seen = set(seen_urls) | set(sold_urls)
 
-    # Safety: if we scraped less than 70% of known active listings, skip withdrawn marking
-    # This prevents mass-withdrawing when the scraper has issues
-    active_count = len(current_active)
-    matched = sum(1 for l in current_active if l['reiwa_url'] in all_seen)
-
-    if active_count > 5 and matched < active_count * 0.7:
-        import logging
-        logging.getLogger(__name__).warning(
-            f"Suburb {suburb_id}: only matched {matched}/{active_count} active listings. "
-            f"Skipping withdrawn marking to prevent false positives."
-        )
-        conn.close()
-        return 0
+    if not confident:
+        # Safety: if we scraped less than 70% of known active listings, skip withdrawn marking
+        active_count = len(current_active)
+        matched = sum(1 for l in current_active if l['reiwa_url'] in all_seen)
+        if active_count > 5 and matched < active_count * 0.7:
+            import logging
+            logging.getLogger(__name__).warning(
+                f"Suburb {suburb_id}: only matched {matched}/{active_count} active listings. "
+                f"Skipping withdrawn marking to prevent false positives."
+            )
+            conn.close()
+            return 0
 
     withdrawn_count = 0
     for listing in current_active:
