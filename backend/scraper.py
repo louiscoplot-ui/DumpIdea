@@ -672,6 +672,28 @@ def scrape_suburb(suburb_slug, suburb_id, progress_callback=None, known_urls=Non
                     page_listings.append(rec)
                     logger.info(f"{suburb_name} p{page_num}: JS rescued missed listing: {normalized}")
 
+                # Method 3: raw HTML regex (catches URLs in scripts, data attrs, JSON-LD)
+                EXCLUDE_REGEX = ["/real-estate-agent/", "/agency/", "/suburb/", "/news/", "/advice/"]
+                for m in re.finditer(r'https?://reiwa\.com\.au/[^\s"\'<>]+?-(\d{5,8})/?(?=["\s\'<>])', html):
+                    regex_url = m.group(0).rstrip('/')
+                    if any(x in regex_url for x in EXCLUDE_REGEX):
+                        continue
+                    if regex_url in seen_urls:
+                        continue
+                    seen_urls.add(regex_url)
+                    new_on_page += 1
+                    rec = {
+                        "url": regex_url,
+                        "address": "Address not disclosed",
+                        "price_text": "", "listing_type": "",
+                        "bedrooms": None, "bathrooms": None, "parking": None,
+                        "land_size": "", "internal_size": "",
+                        "agency": "", "agent": "", "status": "active",
+                        "listing_date": "",
+                    }
+                    page_listings.append(rec)
+                    logger.info(f"{suburb_name} p{page_num}: regex rescued missed listing: {regex_url}")
+
                 # Split into new vs known listings
                 new_listings = []
                 known_listings = []
@@ -921,16 +943,18 @@ def debug_page(suburb_slug):
 
 def compare_suburb(suburb_slug, db_urls):
     """Compare what REIWA shows vs what we have in DB.
-    Returns detailed diff: missing from DB, extra in DB, and total counts."""
+    Returns detailed diagnostic: per-page breakdown, 3 extraction methods."""
     suburb_name = suburb_slug.replace("-", " ").title()
+    EXCLUDE = ["/real-estate-agent/", "/agency/", "/suburb/", "/news/", "/advice/"]
     result = {
         'reiwa_total': None,
         'reiwa_urls': [],
         'db_urls_count': len(db_urls),
-        'missing_from_db': [],   # on REIWA but not in our DB
-        'extra_in_db': [],       # in our DB but not on REIWA
+        'missing_from_db': [],
+        'extra_in_db': [],
         'matched': 0,
         'pages_scraped': 0,
+        'pages_detail': [],
         'error': None,
     }
 
@@ -955,18 +979,20 @@ def compare_suburb(suburb_slug, db_urls):
                 html = page.content()
                 soup = BeautifulSoup(html, "html.parser")
 
-                # Get REIWA's stated total on page 1
                 if page_num == 1:
                     result['reiwa_total'] = _get_reiwa_total(soup)
 
-                # Method 1: extract URLs from live DOM via JS
-                js_urls = _extract_all_listing_urls_js(page)
-                before = len(all_reiwa_urls)
-                for u in js_urls:
-                    all_reiwa_urls.add(u.rstrip('/'))
+                page_detail = {'page': page_num, 'js_urls': [], 'bs4_urls': [], 'regex_urls': [], 'new_urls': []}
 
-                # Method 2: extract from BeautifulSoup as backup
-                EXCLUDE = ["/real-estate-agent/", "/agency/", "/suburb/", "/news/", "/advice/"]
+                # Method 1: JS DOM extraction
+                try:
+                    js_urls = set(u.rstrip('/') for u in _extract_all_listing_urls_js(page))
+                except Exception:
+                    js_urls = set()
+                page_detail['js_urls'] = sorted(js_urls)
+
+                # Method 2: BS4 link extraction
+                bs4_urls = set()
                 for a_tag in soup.find_all("a", href=True):
                     href = a_tag["href"]
                     if not re.search(r"-\d{5,8}/?$", href):
@@ -974,18 +1000,38 @@ def compare_suburb(suburb_slug, db_urls):
                     if any(x in href for x in EXCLUDE):
                         continue
                     full = ("https://reiwa.com.au" + href) if href.startswith("/") else href
-                    all_reiwa_urls.add(full.rstrip('/'))
+                    bs4_urls.add(full.rstrip('/'))
+                page_detail['bs4_urls'] = sorted(bs4_urls)
 
-                new_found = len(all_reiwa_urls) - before
+                # Method 3: raw HTML regex (catches URLs in scripts, data attrs, JSON-LD)
+                regex_urls = set()
+                for m in re.finditer(r'https?://reiwa\.com\.au/[^\s"\'<>]+?-(\d{5,8})/?(?=["\s\'<>])', html):
+                    url_match = m.group(0).rstrip('/')
+                    if not any(x in url_match for x in EXCLUDE):
+                        regex_urls.add(url_match)
+                page_detail['regex_urls'] = sorted(regex_urls)
+
+                # Merge all into master set
+                before = len(all_reiwa_urls)
+                all_reiwa_urls |= js_urls | bs4_urls | regex_urls
+                new_on_page = len(all_reiwa_urls) - before
+                page_detail['new_urls'] = sorted((js_urls | bs4_urls | regex_urls) - (all_reiwa_urls - (js_urls | bs4_urls | regex_urls)))
+                page_detail['new_count'] = new_on_page
+                page_detail['total_so_far'] = len(all_reiwa_urls)
+                page_detail['js_count'] = len(js_urls)
+                page_detail['bs4_count'] = len(bs4_urls)
+                page_detail['regex_count'] = len(regex_urls)
+
+                result['pages_detail'].append(page_detail)
                 result['pages_scraped'] = page_num
 
+                logger.info(f"{suburb_name} compare p{page_num}: JS={len(js_urls)} BS4={len(bs4_urls)} regex={len(regex_urls)} new={new_on_page} total={len(all_reiwa_urls)}")
+
                 reiwa_target = result.get('reiwa_total') or 0
-                if new_found == 0 and page_num > 1:
+                if new_on_page == 0 and page_num > 1:
                     consecutive_empty += 1
                     if reiwa_target and len(all_reiwa_urls) < reiwa_target:
-                        logger.info(f"{suburb_name} compare p{page_num}: 0 new but only {len(all_reiwa_urls)}/{reiwa_target}, continuing...")
                         if consecutive_empty >= 3:
-                            logger.info(f"{suburb_name} compare: 3 consecutive empty pages, stopping")
                             break
                     else:
                         break
@@ -997,7 +1043,6 @@ def compare_suburb(suburb_slug, db_urls):
 
             browser.close()
 
-            # Normalize all URLs for comparison
             reiwa_set = {u.rstrip('/') for u in all_reiwa_urls}
             db_set = {u.rstrip('/') for u in db_urls}
 
